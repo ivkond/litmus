@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Quality
+    uses: ./.github/workflows/ci-quality.yml
+
+  tests:
+    name: Tests
+    uses: ./.github/workflows/ci-tests.yml
+
+  ci:
+    name: CI Gate
+    if: always()
+    needs: [quality, tests]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        run: |
+          if [[ "${{ needs.quality.result }}" != "success" || "${{ needs.tests.result }}" != "success" ]]; then
+            echo "❌ CI failed"
+            echo "  quality: ${{ needs.quality.result }}"
+            echo "  tests:   ${{ needs.tests.result }}"
+            exit 1
+          fi
+          echo "✅ All checks passed"

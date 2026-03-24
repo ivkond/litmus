@@ -1,0 +1,17 @@
+results/
+__pycache__/
+.ruff_cache/
+.venv/
+.pytest_cache/
+target/
+*.log
+
+.agents_cache.yaml
+config.yaml
+litmus.yaml
+
+template/
+.gitnexus/
+.claude/
+.agents/
+CLAUDE.md

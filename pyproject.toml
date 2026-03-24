@@ -1,0 +1,80 @@
+[project]
+name = "litmusai"
+version = "0.1.1"
+description = "Litmus — LLM scenario runner TUI"
+requires-python = ">=3.12"
+license = "MIT"
+readme = "README.md"
+keywords = ["llm", "benchmark", "tui", "agents", "evaluation", "testing"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
+dependencies = [
+    "rich>=13.0",
+    "textual>=3.0",
+    "pyyaml>=6.0",
+    "openai>=1.0",
+    "pydantic>=2.0",
+]
+
+[project.scripts]
+litmus = "litmus:main"
+
+[build-system]
+requires = ["uv_build>=0.10.9,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "litmus"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.11",
+    "pytest>=8.0",
+    "pytest-cov>=6.0",
+    "pyright>=1.1",
+    "bandit>=1.8",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "N",    # pep8-naming
+    "RUF",  # ruff-specific rules
+    "PTH",  # flake8-use-pathlib
+    "TCH",  # flake8-type-checking
+    "PERF", # perflint
+]
+ignore = [
+    "E501",   # line too long (formatter handles this)
+    "N806",   # variable in function should be lowercase (CSS constants)
+    "N802",   # function name should be lowercase (Textual callbacks)
+    "B008",   # do not perform function calls in argument defaults
+    "UP007",  # use X | Y for union types (runtime annotations need Optional)
+    "RUF012", # mutable class default (Textual uses class-level BINDINGS, CSS, etc.)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["litmus"]
+
+[tool.pyright]
+typeCheckingMode = "basic"
+pythonVersion = "3.12"
