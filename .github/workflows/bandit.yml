@@ -1,0 +1,32 @@
+name: Security (Bandit)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1"  # Weekly Monday 06:00 UTC
+
+permissions:
+  security-events: write
+
+jobs:
+  bandit:
+    name: Bandit security scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --group dev
+      - name: Run Bandit
+        run: |
+          uv run bandit -r src/litmus/ -f sarif -o bandit-results.sarif --severity-level medium || true
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: bandit-results.sarif
+          category: bandit
