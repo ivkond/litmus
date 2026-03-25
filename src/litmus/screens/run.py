@@ -912,7 +912,7 @@ class RunDetailScreen(Screen):
                 log_files = sorted(
                     f.name for f in self._work_dir.iterdir() if f.is_file() and f.suffix == ".log"
                 )
-            except (FileNotFoundError, OSError):
+            except OSError:
                 log_files = []
             for name in log_files:
                 self._steps.append(

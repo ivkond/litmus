@@ -101,8 +101,8 @@ class MainMenuScreen(Screen):
                 self.app.push_screen(ResultsBrowserScreen())
             case "settings":
                 self.app.push_screen(SettingsScreen())
-            case _:
-                pass
+            case unknown:
+                self.notify(f"Unknown menu option: {unknown}", severity="warning")
 
     def action_quit(self) -> None:
         self.app.exit()
