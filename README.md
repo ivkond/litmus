@@ -44,7 +44,7 @@ litmus           # open the TUI
 Or run without installing via [uv](https://docs.astral.sh/uv/):
 
 ```bash
-uvx litmus-llm
+uvx --from litmus-llm litmus
 ```
 
 ### Development setup
