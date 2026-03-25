@@ -1,6 +1,6 @@
 [project]
-name = "litmusai"
-version = "0.1.1"
+name = "litmus-llm"
+version = "0.1.0"
 description = "Litmus — LLM scenario runner TUI"
 requires-python = ">=3.12"
 license = "MIT"

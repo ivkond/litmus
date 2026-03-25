@@ -286,7 +286,7 @@ wheels = [
 ]
 
 [[package]]
-name = "litmus"
+name = "litmus-llm"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
