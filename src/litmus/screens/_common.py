@@ -1,5 +1,10 @@
 """Shared constants, widgets, and utility screens used across all litmus screens."""
 
+import os
+import shutil
+import subprocess
+import sys
+
 from rich.segment import Segment
 from rich.style import Style
 from textual import events
@@ -84,9 +89,8 @@ class FilterInput(Input):
 
     async def _on_key(self, event: events.Key) -> None:
         if event.key in ("down", "up"):
-            model_list = self.screen.query_one("#model-list", ModelSelectionList)
+            model_list = self.screen.query_one("#model-list", OptionList)
             model_list.focus()
-            # Forward the key so the list also processes it
             if event.key == "down":
                 model_list.action_cursor_down()
             event.prevent_default()
@@ -140,24 +144,17 @@ class OpenWithScreen(Screen):
             yield ol
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
-        import os
-        import subprocess
-        import sys
-
         choice = event.option.id
         path = self._path
 
+        def _resolve(name: str) -> str:
+            return shutil.which(name) or name
+
         try:
             if choice == "vscode":
-                if sys.platform == "win32":
-                    os.startfile("code", "open", path)
-                else:
-                    subprocess.Popen(["code", path])
+                subprocess.Popen([_resolve("code"), path])
             elif choice == "zed":
-                if sys.platform == "win32":
-                    subprocess.Popen(f'zed "{path}"', shell=True)
-                else:
-                    subprocess.Popen(["zed", path])
+                subprocess.Popen([_resolve("zed"), path])
             elif choice == "explorer":
                 if sys.platform == "win32":
                     os.startfile(path)

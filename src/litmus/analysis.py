@@ -8,7 +8,7 @@ Supports incremental evaluation: evaluate_run() can be called per-run
 as each completes, then assemble_report() builds the final HTML.
 
 Usage:
-    from analysis import evaluate_run, assemble_report, generate_analysis
+    from litmus.analysis import evaluate_run, assemble_report, generate_analysis
 """
 
 import csv
@@ -194,10 +194,14 @@ def _read_scenario_meta(scenario_id: str) -> dict:
     if scoring_file.is_file():
         with scoring_file.open(encoding="utf-8") as f:
             for row in csv.DictReader(f):
+                try:
+                    score = int(row.get("score", "1") or "1")
+                except (ValueError, TypeError):
+                    score = 1
                 meta["scoring"].append(
                     {
                         "criterion": row.get("criterion", ""),
-                        "score": int(row.get("score", "1")),
+                        "score": score,
                     }
                 )
     return meta

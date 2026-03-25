@@ -1,4 +1,4 @@
-"""Models screen — agent discovery and model selection."""
+"""Models screen — agent & model catalog (view, add, remove)."""
 
 from textual import on, work
 from textual.app import ComposeResult
@@ -12,18 +12,25 @@ from textual.widgets import (
     Label,
     LoadingIndicator,
     OptionList,
-    SelectionList,
 )
 from textual.widgets.option_list import Option
-from textual.widgets.selection_list import Selection
 
-from ..agents import DetectedAgent, load_cache, load_config, save_cache, save_config, scan_agents
-from ._common import FilterInput, ModelSelectionList
+from ..agents import (
+    DetectedAgent,
+    add_model_to_cache,
+    load_cache,
+    remove_model_from_cache,
+    save_cache,
+    scan_agents,
+)
+from ._common import FilterInput
+
+_ID_MODEL_LIST = "#model-list"
 
 
 class ModelsScreen(Screen):
     BINDINGS = [
-        Binding("s", "save", "Save config", priority=True),
+        Binding("d", "delete", "Delete model"),
         Binding("r", "refresh", "Refresh"),
         Binding("escape", "back", "Back"),
     ]
@@ -72,21 +79,6 @@ class ModelsScreen(Screen):
     #model-list {
         height: 1fr;
     }
-    /* Custom selection icons */
-    ModelSelectionList > .selection-list--button {
-        color: $text-muted;
-    }
-    ModelSelectionList > .selection-list--button-selected {
-        color: $success;
-    }
-    ModelSelectionList > .selection-list--button-highlighted {
-        color: $text;
-        background: $accent;
-    }
-    ModelSelectionList > .selection-list--button-selected-highlighted {
-        color: $success;
-        background: $accent;
-    }
     #status-label {
         dock: bottom;
         height: 1;
@@ -94,13 +86,6 @@ class ModelsScreen(Screen):
         color: $text-muted;
     }
     """
-
-    COMPONENT_CLASSES = {
-        "selection-list--button",
-        "selection-list--button-selected",
-        "selection-list--button-highlighted",
-        "selection-list--button-selected-highlighted",
-    }
 
     def __init__(self) -> None:
         super().__init__()
@@ -111,11 +96,9 @@ class ModelsScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
-        # Loading state — shown during scanning
         with Vertical(id="loading-area"):
             yield LoadingIndicator()
             yield Label("Scanning for installed agents...", id="loading-status")
-        # Main UI — hidden until scan completes
         with Horizontal(id="models-body"):
             with Vertical(id="agent-pane"):
                 yield Label(" Agents", id="agent-pane-label")
@@ -125,15 +108,13 @@ class ModelsScreen(Screen):
                     placeholder="Filter models / type name + Enter to add...",
                     id="model-search",
                 )
-                yield Label("Enter = add custom model", id="add-hint")
-                yield ModelSelectionList(id="model-list")
+                yield Label("Enter = add model, D = delete", id="add-hint")
+                yield OptionList(id="model-list")
         yield Label("", id="status-label")
         yield Footer()
 
     def on_mount(self) -> None:
         self.title = "Models"
-
-        # Try cache first — instant open
         cached = load_cache()
         if cached is not None:
             detected, not_found_names = cached
@@ -141,7 +122,6 @@ class ModelsScreen(Screen):
             self.query_one("#models-body").display = True
             self._apply_detected(detected, not_found_names)
         else:
-            # No cache — show spinner and scan
             self.query_one("#models-body").display = False
             self._start_scan()
 
@@ -156,8 +136,6 @@ class ModelsScreen(Screen):
             self.app.call_from_thread(status.update, message)
 
         detected, not_found = scan_agents(on_progress=on_progress)
-
-        # Save cache for next time
         save_cache(detected, not_found)
 
         not_found_names = [a.name for a in not_found]
@@ -169,11 +147,8 @@ class ModelsScreen(Screen):
         not_found_names: list[str],
     ) -> None:
         self._scanning = False
-
-        # Switch from loading to main UI
         self.query_one("#loading-area").display = False
         self.query_one("#models-body").display = True
-
         self._apply_detected(detected, not_found_names)
         self.notify("Agent scan complete")
 
@@ -182,34 +157,17 @@ class ModelsScreen(Screen):
         detected: list[DetectedAgent],
         not_found_names: list[str],
     ) -> None:
-        """Populate screen state from detected agents (cache or fresh scan)."""
+        """Populate screen state from detected agents."""
         self._detected = detected
         self._not_found = not_found_names
         self._current_agent_idx = None
 
-        # Restore previously selected models from config.yaml
-        saved = load_config()
-        if saved and "agents" in saved:
-            saved_by_name = {a["name"]: a for a in saved["agents"]}
-            for d in self._detected:
-                cfg = saved_by_name.get(d.info.name)
-                if cfg and "models" in cfg:
-                    saved_models = cfg["models"]
-                    # Add any custom models that aren't in the detected list
-                    known = set(d.models)
-                    for m in saved_models:
-                        if m not in known:
-                            d.models.append(m)
-                    d.selected = list(saved_models)
-
-        # Populate agent list
         agent_list = self.query_one("#agent-list", OptionList)
         agent_list.clear_options()
         for d in self._detected:
             agent_list.add_option(Option(self._agent_label(d), id=d.info.name))
 
-        # Clear model list
-        self.query_one("#model-list", ModelSelectionList).clear_options()
+        self.query_one(_ID_MODEL_LIST, OptionList).clear_options()
 
         if self._not_found:
             names = ", ".join(self._not_found)
@@ -235,7 +193,6 @@ class ModelsScreen(Screen):
         return None
 
     def _show_models_for(self, idx: int) -> None:
-        self._save_current_selection()
         self._current_agent_idx = idx
         d = self._detected[idx]
 
@@ -243,14 +200,13 @@ class ModelsScreen(Screen):
         search.value = ""
         search.focus()
 
-        self._populate_model_list(d.models, d.selected)
+        self._populate_model_list(d.models)
 
-    def _populate_model_list(self, models: list[str], selected: list[str]) -> None:
-        sel_list = self.query_one("#model-list", ModelSelectionList)
-        selected_set = set(selected)
-        sel_list.clear_options()
+    def _populate_model_list(self, models: list[str]) -> None:
+        model_list = self.query_one(_ID_MODEL_LIST, OptionList)
+        model_list.clear_options()
         for m in models:
-            sel_list.add_option(Selection(m, m, m in selected_set))
+            model_list.add_option(Option(m, id=m))
 
     # --- Add custom model ---
 
@@ -262,19 +218,37 @@ class ModelsScreen(Screen):
         if not model_name:
             return
         d = self._detected[self._current_agent_idx]
-        # Don't add duplicates
         if model_name in d.models:
             self.notify(f"'{model_name}' already in list", severity="warning")
             return
-        # Add to agent's model list and select it
         d.models.append(model_name)
-        d.selected.append(model_name)
-        # Clear filter and refresh
+        add_model_to_cache(d.info.name, model_name)
         search = self.query_one("#model-search", FilterInput)
         search.value = ""
-        self._populate_model_list(d.models, d.selected)
+        self._populate_model_list(d.models)
         self._update_agent_label(self._current_agent_idx)
         self.notify(f"Added '{model_name}'")
+
+    # --- Delete model ---
+
+    def action_delete(self) -> None:
+        if self._current_agent_idx is None:
+            return
+        model_list = self.query_one(_ID_MODEL_LIST, OptionList)
+        idx = model_list.highlighted
+        if idx is None:
+            return
+        option = model_list.get_option_at_index(idx)
+        model_name = option.id
+        if model_name is None:
+            return
+        d = self._detected[self._current_agent_idx]
+        if model_name in d.models:
+            d.models.remove(model_name)
+            remove_model_from_cache(d.info.name, model_name)
+        self._populate_model_list(d.models)
+        self._update_agent_label(self._current_agent_idx)
+        self.notify(f"Removed '{model_name}'")
 
     # --- Model search/filter ---
 
@@ -285,34 +259,18 @@ class ModelsScreen(Screen):
         d = self._detected[self._current_agent_idx]
         query = event.value.lower()
         filtered = [m for m in d.models if query in m.lower()] if query else d.models
-        self._save_current_selection()
-        self._populate_model_list(filtered, d.selected)
+        self._populate_model_list(filtered)
 
-    # --- Selection tracking ---
+    # --- Helpers ---
 
-    def _save_current_selection(self) -> None:
-        """Read SelectionList state back into DetectedAgent.selected."""
-        if self._current_agent_idx is None:
-            return
-        d = self._detected[self._current_agent_idx]
-        sel_list = self.query_one("#model-list", ModelSelectionList)
-
-        visible_selected = set(sel_list.selected)
-        visible_models = set()
-        for i in range(sel_list.option_count):
-            val = sel_list.get_option_at_index(i).value
-            visible_models.add(val)
-
-        kept = [m for m in d.selected if m not in visible_models]
-        d.selected = kept + list(visible_selected)
-
-        self._update_agent_label(self._current_agent_idx)
-
-    @on(SelectionList.SelectedChanged)
-    def _on_selection_changed(self, event: SelectionList.SelectedChanged) -> None:
-        if self._current_agent_idx is None:
-            return
-        self._save_current_selection()
+    @staticmethod
+    def _agent_label(d: DetectedAgent) -> str:
+        n = len(d.models)
+        if d.error:
+            return f"{d.info.name}  (error)"
+        if n:
+            return f"{d.info.name}  ({n} models)"
+        return d.info.name
 
     def _update_agent_label(self, idx: int) -> None:
         d = self._detected[idx]
@@ -321,42 +279,15 @@ class ModelsScreen(Screen):
         if option.id is not None:
             agent_list.replace_option_prompt(option.id, self._agent_label(d))
 
-    # --- Helpers ---
-
-    @staticmethod
-    def _agent_label(d: DetectedAgent) -> str:
-        n_avail = len(d.models)
-        n_sel = len(d.selected)
-        if d.error:
-            return f"{d.info.name}  (error)"
-        if not d.models and d.info.model_cmd is None:
-            if n_sel:
-                return f"{d.info.name}  ({n_sel} manual)"
-            return d.info.name
-        if n_sel:
-            return f"{d.info.name}  ({n_sel}/{n_avail})"
-        return f"{d.info.name}  (0/{n_avail})"
-
     # --- Actions ---
-
-    def action_save(self) -> None:
-        self._save_current_selection()
-        path = save_config(self._detected)
-        if path:
-            self.notify(f"Config saved: {path}", title="Saved")
-        else:
-            self.notify("No models selected", severity="warning")
 
     def action_refresh(self) -> None:
         if self._scanning:
             self.notify("Scan already in progress", severity="warning")
             return
-        self._save_current_selection()
-        # Show loading, hide main UI
         self.query_one("#loading-area").display = True
         self.query_one("#models-body").display = False
         self._start_scan()
 
     def action_back(self) -> None:
-        self._save_current_selection()
         self.app.pop_screen()
