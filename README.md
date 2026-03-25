@@ -1,5 +1,12 @@
 # Litmus 🧪
 
+[![CI](https://github.com/ivkond/litmus/actions/workflows/ci.yml/badge.svg)](https://github.com/ivkond/litmus/actions/workflows/ci.yml)
+[![Security (Bandit)](https://github.com/ivkond/litmus/actions/workflows/bandit.yml/badge.svg)](https://github.com/ivkond/litmus/actions/workflows/bandit.yml)
+[![Security (OSV)](https://github.com/ivkond/litmus/actions/workflows/osv-scanner.yml/badge.svg)](https://github.com/ivkond/litmus/actions/workflows/osv-scanner.yml)
+[![PyPI](https://img.shields.io/pypi/v/litmus-llm)](https://pypi.org/project/litmus-llm/)
+[![Python](https://img.shields.io/pypi/pyversions/litmus-llm)](https://pypi.org/project/litmus-llm/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **Terminal UI for running LLM agent scenarios and comparing their performance.**
 
 Litmus executes coding tasks across multiple AI agents and models, runs tests against the results, and produces detailed evaluation reports — all from a single TUI.
@@ -26,30 +33,28 @@ Litmus auto-detects which agents are available and queries their model lists.
 
 ## Quick start
 
-Requires **Python 3.12+** and [uv](https://docs.astral.sh/uv/).
+Requires **Python 3.12+**.
 
 ```bash
-# Run without installing — uv fetches everything automatically
-uvx --from git+https://github.com/ivkond/litmus.git litmus
+pip install litmus-llm
+litmus init      # create a workspace with a sample scenario
+litmus           # open the TUI
 ```
 
-On first launch Litmus will detect installed agents, generate a config, and open the TUI.
-
-### Alternative ways to install
+Or run without installing via [uv](https://docs.astral.sh/uv/):
 
 ```bash
-# Install as a global tool
-uv tool install git+https://github.com/ivkond/litmus.git
-litmus
+uvx litmus-llm
+```
 
-# Or clone for development
+### Development setup
+
+```bash
 git clone https://github.com/ivkond/litmus.git
 cd litmus
 uv sync
 uv run litmus
 ```
-
-> Once published to PyPI, install will simplify to `uvx litmus`.
 
 ### TUI workflow
 
@@ -91,13 +96,14 @@ Litmus supports exporting and importing scenario archives (`.litmus-pack` ZIP fi
 
 ```
 src/litmus/
-  __init__.py     # Entry point, PROJECT_ROOT
-  app.py          # Textual TUI (screens, widgets)
-  agents.py       # Agent registry, detection, model listing
-  run.py          # Scenario execution engine
-  analysis.py     # LLM-powered evaluation (20+20 criteria)
-  report.py       # HTML report generation
-  pack/           # Scenario export/import
+  __init__.py       # Entry point, workspace init
+  app.py            # Main app, menu screen
+  agents.py         # Agent registry, detection, model listing
+  run.py            # Scenario execution engine
+  analysis.py       # LLM-powered evaluation (20+20 criteria)
+  report.py         # HTML report generation
+  pack/             # Scenario export/import
+  screens/          # TUI screens (models, scenarios, run, results, analysis)
 ```
 
 ## Tech stack
