@@ -1,5 +1,9 @@
 """Shared constants, widgets, and utility screens used across all litmus screens."""
 
+import os
+import subprocess
+import sys
+
 from rich.segment import Segment
 from rich.style import Style
 from textual import events
@@ -139,24 +143,14 @@ class OpenWithScreen(Screen):
             yield ol
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
-        import os
-        import subprocess
-        import sys
-
         choice = event.option.id
         path = self._path
 
         try:
             if choice == "vscode":
-                if sys.platform == "win32":
-                    os.startfile("code", "open", path)
-                else:
-                    subprocess.Popen(["code", path])
+                subprocess.Popen(["code", path])
             elif choice == "zed":
-                if sys.platform == "win32":
-                    subprocess.Popen(f'zed "{path}"', shell=True)
-                else:
-                    subprocess.Popen(["zed", path])
+                subprocess.Popen(["zed", path])
             elif choice == "explorer":
                 if sys.platform == "win32":
                     os.startfile(path)

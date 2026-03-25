@@ -101,6 +101,8 @@ class MainMenuScreen(Screen):
                 self.app.push_screen(ResultsBrowserScreen())
             case "settings":
                 self.app.push_screen(SettingsScreen())
+            case _:
+                pass
 
     def action_quit(self) -> None:
         self.app.exit()

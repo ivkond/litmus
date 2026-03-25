@@ -1,16 +1,24 @@
 """Run-related screens: configuration, progress, viewer, and detail."""
 
 import contextlib
+import json
+import sys
 import threading
+import time
+import traceback
+import webbrowser
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 from pathlib import Path
 
+import yaml
 from rich.text import Text
-from textual import work
+from textual import on, work
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import Screen
-from textual import on
 from textual.widgets import (
     Button,
     DataTable,
@@ -26,6 +34,7 @@ from textual.widgets.option_list import Option
 from textual.widgets.selection_list import Selection
 
 from ..agents import DetectedAgent, load_cache
+from ..report import strip_ansi
 from ..run import CancelledError, get_scenario_ids, make_model_safe, run_single_scenario
 from ._common import RESULTS_DIR, TEMPLATE_DIR, ModelSelectionList, OpenWithScreen
 
@@ -316,15 +325,15 @@ class RunConfigScreen(Screen):
 
     def _update_summary(self) -> None:
         active = self._active_agents()
-        n_models = len(self._selected_models)
         scenarios_sl = self.query_one("#rc-scenarios", ModelSelectionList)
         n_scenarios = len(scenarios_sl.selected)
         # Each agent runs only its own selected models
-        total = sum(
+        n_agent_model_pairs = sum(
             len(self._selected_models & set(d.models)) for d in active
-        ) * n_scenarios
+        )
+        total = n_agent_model_pairs * n_scenarios
         self.query_one("#rc-summary", Label).update(
-            f"Total: {len(active)} agents \u00d7 {n_models} models"
+            f"Total: {n_agent_model_pairs} agent\u00d7model pairs"
             f" \u00d7 {n_scenarios} scenarios = {total} runs"
         )
 
@@ -450,8 +459,6 @@ class RunProgressScreen(Screen):
     """
 
     def __init__(self, agents: list[dict], scenario_ids: list[str]) -> None:
-        from datetime import datetime
-
         super().__init__()
         # Build flat task list
         tasks: list[tuple[str, str, str, str]] = []
@@ -470,15 +477,17 @@ class RunProgressScreen(Screen):
 
     @staticmethod
     def _save_run_config(agents: list[dict], scenario_ids: list[str], run_dir: Path) -> None:
-        import yaml
 
         run_dir.mkdir(parents=True, exist_ok=True)
         config = {
             "agents": [
-                {"name": a["name"], "cmd_template": a["cmd_template"]}
+                {
+                    "name": a["name"],
+                    "cmd_template": a["cmd_template"],
+                    "models": a.get("models", []),
+                }
                 for a in agents
             ],
-            "models": agents[0].get("models", []) if agents else [],
             "scenarios": scenario_ids,
         }
         (run_dir / "run_config.yaml").write_text(
@@ -508,7 +517,6 @@ class RunProgressScreen(Screen):
         self._run_all()
 
     def _exec_task(self, idx: int) -> tuple[int, bool]:
-        import time
 
         st = self._state
         cancel_ev = st.cancel_events.get(idx)
@@ -546,10 +554,8 @@ class RunProgressScreen(Screen):
             return idx, False
         except Exception as exc:
             ok = False
-            import traceback
-
-            print(f"  [{run_id}] crashed: {exc}", file=__import__("sys").stderr)
-            traceback.print_exc(file=__import__("sys").stderr)
+            print(f"  [{run_id}] crashed: {exc}", file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
             err_log = work_dir / "00_crash.log"
             try:
                 work_dir.mkdir(parents=True, exist_ok=True)
@@ -580,9 +586,6 @@ class RunProgressScreen(Screen):
         self._run_batch(indices)
 
     def _run_batch(self, indices: list[int]) -> None:
-        from collections import defaultdict
-        from concurrent.futures import ThreadPoolExecutor, as_completed
-
         self._state.run_dir.mkdir(parents=True, exist_ok=True)
         self._state.running = True
 
@@ -631,8 +634,6 @@ class RunProgressScreen(Screen):
 
     def _finalize_reports(self) -> None:
         """Generate HTML reports. Runs in worker thread."""
-        import sys
-
         from ..report import generate_report
 
         try:
@@ -832,8 +833,6 @@ class RunViewerScreen(Screen):
     def action_report(self) -> None:
         report_file = self._state.run_dir / "report.html"
         if report_file.is_file():
-            import webbrowser
-
             webbrowser.open(report_file.as_uri())
         else:
             self.notify("No report yet", severity="warning")
@@ -907,15 +906,9 @@ class RunDetailScreen(Screen):
         self.title = f"{self._agent} / {self._model} / {self._scenario_id}"
         self._load_steps()
 
-    @staticmethod
-    def _strip_ansi(text: str) -> str:
-        import re
-
-        return re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", text)
+    # ANSI stripping delegated to report.strip_ansi (imported at top)
 
     def _load_steps(self) -> None:
-        import json
-
         steps_file = self._work_dir / "steps.json"
         ol = self.query_one("#rd-steps-list", OptionList)
         ol.clear_options()
@@ -987,7 +980,7 @@ class RunDetailScreen(Screen):
         status = step.get("status", "")
         self.query_one("#rd-log-title", Label).update(f"{title}  [{status}]")
         if log_file.is_file():
-            text = self._strip_ansi(log_file.read_text(encoding="utf-8", errors="replace"))
+            text = strip_ansi(log_file.read_text(encoding="utf-8", errors="replace"))
             self.query_one("#rd-log-text", Static).update(text or "(empty log)")
         else:
             self.query_one("#rd-log-text", Static).update("(log not yet available)")
@@ -1000,8 +993,6 @@ class RunDetailScreen(Screen):
     def action_report(self) -> None:
         report_file = self._work_dir.parent / "report.html"
         if report_file.is_file():
-            import webbrowser
-
             webbrowser.open(report_file.as_uri())
         else:
             self.notify("No report yet — run from Results (r)", severity="warning")
