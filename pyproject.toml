@@ -1,6 +1,6 @@
 [project]
 name = "litmus-llm"
-version = "0.3.0"
+version = "0.3.1"
 description = "Litmus — LLM scenario runner TUI"
 requires-python = ">=3.12"
 license = "MIT"
