@@ -10,48 +10,257 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import Screen
+from textual import on
 from textual.widgets import (
+    Button,
     DataTable,
     Footer,
     Header,
+    Input,
     Label,
     OptionList,
     ProgressBar,
     Static,
-    Tree,
 )
 from textual.widgets.option_list import Option
 from textual.widgets.selection_list import Selection
 
-from ..agents import load_analysis_config, load_config
+from ..agents import DetectedAgent, load_cache
 from ..run import CancelledError, get_scenario_ids, make_model_safe, run_single_scenario
 from ._common import RESULTS_DIR, TEMPLATE_DIR, ModelSelectionList, OpenWithScreen
+
+
+class AgentModelPickerScreen(Screen):
+    """Modal: pick agents and models for a run."""
+
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+        Binding("a", "show_all_selected", "All selected"),
+    ]
+
+    CSS = """
+    AgentModelPickerScreen { align: center middle; }
+    #amp-box {
+        width: 90;
+        height: 26;
+        border: solid $accent;
+        padding: 1 2;
+    }
+    #amp-title {
+        text-style: bold;
+        text-align: center;
+        margin-bottom: 1;
+    }
+    #amp-body { height: 1fr; }
+    #amp-agents-pane {
+        width: 1fr;
+        max-width: 35;
+        border-right: solid $surface-lighten-2;
+    }
+    #amp-models-pane { width: 2fr; }
+    .amp-label {
+        text-style: bold;
+        color: $accent;
+        padding: 0 1;
+    }
+    #amp-filter {
+        margin: 0 1;
+        height: 3;
+    }
+    #amp-footer {
+        height: auto;
+        width: 1fr;
+        margin-top: 1;
+        layout: horizontal;
+        align: center middle;
+    }
+    #amp-hint {
+        width: 1fr;
+        color: $text-muted;
+        padding: 0 1;
+    }
+    #amp-ok {
+        width: auto;
+        min-width: 16;
+        border: none;
+        padding: 0 2;
+        dock: right;
+    }
+    """
+
+    def __init__(
+        self,
+        detected: list[DetectedAgent],
+        selected_models: set[str] | None = None,
+    ) -> None:
+        super().__init__()
+        self._detected = detected
+        self._by_name: dict[str, DetectedAgent] = {d.info.name: d for d in detected}
+        self._selected_models: set[str] = set(selected_models) if selected_models else set()
+        self._highlighted_agent: str | None = None
+        self._show_all_mode: bool = False
+        # Models currently displayed in the list (for index → value mapping)
+        self._displayed_models: list[str] = []
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="amp-box"):
+            yield Label("Select agents and models", id="amp-title")
+            with Horizontal(id="amp-body"):
+                with Vertical(id="amp-agents-pane"):
+                    yield Label("Agents", classes="amp-label")
+                    yield OptionList(id="amp-agents")
+                with Vertical(id="amp-models-pane"):
+                    yield Label("Models", id="amp-models-label", classes="amp-label")
+                    yield Input(placeholder="Filter models...", id="amp-filter")
+                    yield ModelSelectionList(id="amp-models")
+            with Horizontal(id="amp-footer"):
+                yield Label("Esc = Cancel \u00b7 A = All selected", id="amp-hint")
+                yield Button("OK", id="amp-ok", variant="primary")
+
+    def on_mount(self) -> None:
+        agents_ol = self.query_one("#amp-agents", OptionList)
+        for d in self._detected:
+            agents_ol.add_option(Option(self._agent_label(d), id=d.info.name))
+        # Models pane starts empty — highlight an agent to see its models
+
+    # ── Agent labels with counter ─────────────────────────────────────────
+
+    def _agent_label(self, d: DetectedAgent) -> str:
+        n_sel = len(self._selected_models & set(d.models))
+        n_total = len(d.models)
+        return f"{d.info.name}  ({n_sel}/{n_total})"
+
+    def _update_agent_labels(self) -> None:
+        agents_ol = self.query_one("#amp-agents", OptionList)
+        for i, d in enumerate(self._detected):
+            agents_ol.replace_option_prompt_at_index(i, self._agent_label(d))
+
+    def _compute_selected_agents(self) -> set[str]:
+        """Agents that have at least one selected model."""
+        return {
+            d.info.name
+            for d in self._detected
+            if self._selected_models & set(d.models)
+        }
+
+    # ── Models list rebuild ───────────────────────────────────────────────
+
+    def _rebuild_models_list(self, models: list[str]) -> None:
+        sl = self.query_one("#amp-models", ModelSelectionList)
+        sl.clear_options()
+        self._displayed_models = list(models)
+        for m in models:
+            sl.add_option(Selection(m, m, m in self._selected_models))
+
+    def _show_agent_models(self, agent_name: str) -> None:
+        self._highlighted_agent = agent_name
+        self._show_all_mode = False
+        d = self._by_name.get(agent_name)
+        models = d.models if d else []
+        filter_text = self.query_one("#amp-filter", Input).value.strip().lower()
+        if filter_text:
+            models = [m for m in models if filter_text in m.lower()]
+        self._rebuild_models_list(models)
+        label = self.query_one("#amp-models-label", Label)
+        label.update(f"Models \u2014 {agent_name}")
+
+    def _refresh_models_view(self) -> None:
+        """Re-apply current view (agent or all-selected) with current filter."""
+        if self._show_all_mode:
+            self._do_show_all_selected()
+        elif self._highlighted_agent:
+            self._show_agent_models(self._highlighted_agent)
+
+    # ── Events ────────────────────────────────────────────────────────────
+
+    def on_option_list_option_highlighted(
+        self, event: OptionList.OptionHighlighted
+    ) -> None:
+        if event.option_list.id == "amp-agents" and event.option and event.option.id:
+            self._show_agent_models(event.option.id)
+
+    def on_selection_list_selection_toggled(
+        self, event: ModelSelectionList.SelectionToggled
+    ) -> None:
+        if event.selection_list.id == "amp-models":
+            idx = event.selection_index
+            if idx < len(self._displayed_models):
+                model_name = self._displayed_models[idx]
+                if model_name in self._selected_models:
+                    self._selected_models.discard(model_name)
+                else:
+                    self._selected_models.add(model_name)
+                self._update_agent_labels()
+
+    @on(Input.Changed, "#amp-filter")
+    def _on_filter_changed(self, event: Input.Changed) -> None:
+        self._refresh_models_view()
+
+    # ── Actions ───────────────────────────────────────────────────────────
+
+    def action_show_all_selected(self) -> None:
+        if self._show_all_mode:
+            # Toggle back to agent view
+            if self._highlighted_agent:
+                self._show_agent_models(self._highlighted_agent)
+            else:
+                self._show_all_mode = False
+                self._rebuild_models_list([])
+                self.query_one("#amp-models-label", Label).update("Models")
+            return
+        self._do_show_all_selected()
+
+    def _do_show_all_selected(self) -> None:
+        self._show_all_mode = True
+        models = sorted(self._selected_models)
+        filter_text = self.query_one("#amp-filter", Input).value.strip().lower()
+        if filter_text:
+            models = [m for m in models if filter_text in m.lower()]
+        self._rebuild_models_list(models)
+        label = self.query_one("#amp-models-label", Label)
+        label.update(f"All selected ({len(self._selected_models)})")
+
+    @on(Button.Pressed, "#amp-ok")
+    def _on_ok(self, event: Button.Pressed) -> None:
+        self.dismiss((self._compute_selected_agents(), self._selected_models.copy()))
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
 
 
 class RunConfigScreen(Screen):
     BINDINGS = [
         Binding("escape", "back", "Back"),
         Binding("enter", "start", "Start"),
+        Binding("m", "pick_models", "Models"),
     ]
 
     CSS = """
     RunConfigScreen { layout: vertical; }
     #rc-body { padding: 1 2; }
-    #rc-tree { height: auto; max-height: 14; margin-bottom: 1; }
-    #rc-scenarios { height: auto; max-height: 14; margin-bottom: 1; }
+    #rc-tree {
+        height: auto;
+        max-height: 14;
+        margin-bottom: 1;
+        padding: 1;
+        border: solid $surface-lighten-2;
+    }
+    #rc-scenarios { height: auto; max-height: 10; margin-bottom: 1; }
     #rc-summary { text-style: bold; margin-top: 1; }
     .rc-label { text-style: bold; color: $accent; margin-bottom: 0; }
     """
 
     def __init__(self) -> None:
         super().__init__()
-        self._agents: list[dict] = []
+        self._detected: list[DetectedAgent] = []
+        self._by_name: dict[str, DetectedAgent] = {}
+        self._selected_models: set[str] = set()
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
         with VerticalScroll(id="rc-body"):
-            yield Label("Agents & Models", classes="rc-label")
-            yield Tree("config", id="rc-tree")
+            yield Label("Agents & Models  [dim]m = edit[/]", classes="rc-label")
+            yield Static("(none selected)", id="rc-tree")
             yield Label("Scenarios", classes="rc-label")
             yield ModelSelectionList(id="rc-scenarios")
             yield Label("", id="rc-summary")
@@ -59,61 +268,121 @@ class RunConfigScreen(Screen):
 
     def on_mount(self) -> None:
         self.title = "Run tests"
-        config = load_config()
-        if not config or "agents" not in config:
-            self.notify("No config.yaml — run Models first", severity="error")
+        cached = load_cache()
+        if cached is None:
+            self.notify("No agent cache \u2014 run Models scan first", severity="error")
             return
 
-        self._agents = config["agents"]
+        detected, _not_found = cached
+        self._detected = detected
+        self._by_name = {d.info.name: d for d in detected}
 
-        # Build tree
-        tree = self.query_one("#rc-tree", Tree)
-        tree.show_root = False
-        for agent in self._agents:
-            name = agent["name"]
-            models = agent.get("models", [])
-            branch = tree.root.add(f"{name} ({len(models)} models)", expand=True)
-            for m in models:
-                branch.add_leaf(m)
+        if not self._detected:
+            self.notify("No agents detected \u2014 run Models scan first", severity="error")
+            return
 
-        # Build scenario checklist (all selected)
+        # Start with empty selection — user opens picker via 'm'
+
+        # Scenarios checklist (all selected)
         scenario_ids = get_scenario_ids(TEMPLATE_DIR)
-        sl = self.query_one("#rc-scenarios", ModelSelectionList)
+        scenarios_sl = self.query_one("#rc-scenarios", ModelSelectionList)
         for sid in scenario_ids:
-            sl.add_option(Selection(sid, sid, True))
+            scenarios_sl.add_option(Selection(sid, sid, True))
 
+        self._update_tree()
         self._update_summary()
+
+    def _active_agents(self) -> list[DetectedAgent]:
+        """Agents that have at least one selected model."""
+        return [
+            d for d in self._detected
+            if self._selected_models & set(d.models)
+        ]
+
+    def _update_tree(self) -> None:
+        """Rebuild the agent/model tree display."""
+        lines: list[str] = []
+        active = self._active_agents()
+        for d in active:
+            agent_models = sorted(self._selected_models & set(d.models))
+            lines.append(f"[bold]{d.info.name}[/bold]")
+            for i, m in enumerate(agent_models):
+                connector = " \u2514 " if i == len(agent_models) - 1 else " \u251c "
+                lines.append(f"[dim]{connector}[/]{m}")
+
+        self.query_one("#rc-tree", Static).update(
+            "\n".join(lines) if lines else "(none selected \u2014 press [bold]m[/] to select)"
+        )
+
+    def _update_summary(self) -> None:
+        active = self._active_agents()
+        n_models = len(self._selected_models)
+        scenarios_sl = self.query_one("#rc-scenarios", ModelSelectionList)
+        n_scenarios = len(scenarios_sl.selected)
+        # Each agent runs only its own selected models
+        total = sum(
+            len(self._selected_models & set(d.models)) for d in active
+        ) * n_scenarios
+        self.query_one("#rc-summary", Label).update(
+            f"Total: {len(active)} agents \u00d7 {n_models} models"
+            f" \u00d7 {n_scenarios} scenarios = {total} runs"
+        )
 
     def on_selection_list_selection_toggled(self, event) -> None:
         self._update_summary()
 
-    def _update_summary(self) -> None:
-        sl = self.query_one("#rc-scenarios", ModelSelectionList)
-        n_scenarios = len(sl.selected)
-        n_models = sum(len(a.get("models", [])) for a in self._agents)
-        n_agents = len(self._agents)
-        total = n_models * n_scenarios
-        self.query_one("#rc-summary", Label).update(
-            f"Total: {n_agents} agents x {n_models} models x {n_scenarios} scenarios = {total} runs"
+    def action_pick_models(self) -> None:
+        if not self._detected:
+            self.notify("No agents available", severity="error")
+            return
+        self.app.push_screen(
+            AgentModelPickerScreen(
+                self._detected,
+                self._selected_models,
+            ),
+            self._on_picker_result,
         )
 
+    def _on_picker_result(self, result: tuple[set[str], set[str]] | None) -> None:
+        if result is None:
+            return
+        _agents, self._selected_models = result
+        self._update_tree()
+        self._update_summary()
+
     def action_start(self) -> None:
-        # Block if there's already an active run
         active = getattr(self.app, "active_run", None)
         if active is not None and active.running:
             self.notify(
-                "A run is already in progress — finish or stop it first", severity="warning"
+                "A run is already in progress \u2014 finish or stop it first",
+                severity="warning",
             )
             return
-        sl = self.query_one("#rc-scenarios", ModelSelectionList)
-        selected_scenarios = list(sl.selected)
+
+        selected_scenarios = list(
+            self.query_one("#rc-scenarios", ModelSelectionList).selected
+        )
+        active_agents = self._active_agents()
+
+        if not active_agents:
+            self.notify("Select at least one model", severity="error")
+            return
         if not selected_scenarios:
             self.notify("Select at least one scenario", severity="error")
             return
-        if not self._agents:
-            self.notify("No agents configured", severity="error")
-            return
-        self.app.push_screen(RunProgressScreen(self._agents, selected_scenarios))
+
+        # Build agents list — each agent gets only its own selected models
+        agents = []
+        for d in active_agents:
+            agent_models = sorted(self._selected_models & set(d.models))
+            agents.append({
+                "name": d.info.name,
+                "binary": d.path,
+                "cmd_template": d.info.cmd_template,
+                "models": agent_models,
+            })
+
+        self.app.push_screen(RunProgressScreen(agents, selected_scenarios))
 
     def action_back(self) -> None:
         self.app.pop_screen()
@@ -147,6 +416,12 @@ class RunState:
         self.done_count = 0
         self.running = False
         self.cancel_events: dict[int, threading.Event] = {}
+        # Queue for restarted tasks, keyed by (agent, model) lane.
+        # Lanes drain this after finishing their initial work.
+        self.restart_queue: dict[tuple[str, str], list[int]] = {}
+        self.restart_lock = threading.Lock()
+        # Lanes currently alive (still inside run_lane).
+        self.active_lanes: set[tuple[str, str]] = set()
 
     def set_status(self, idx: int, status: str, elapsed: float | None = None) -> None:
         self.status[idx] = status
@@ -187,7 +462,29 @@ class RunProgressScreen(Screen):
                 for sid in scenario_ids
             )
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self._state = RunState(tasks, RESULTS_DIR / ts)
+        run_dir = RESULTS_DIR / ts
+        self._state = RunState(tasks, run_dir)
+
+        # Save run configuration to results
+        self._save_run_config(agents, scenario_ids, run_dir)
+
+    @staticmethod
+    def _save_run_config(agents: list[dict], scenario_ids: list[str], run_dir: Path) -> None:
+        import yaml
+
+        run_dir.mkdir(parents=True, exist_ok=True)
+        config = {
+            "agents": [
+                {"name": a["name"], "cmd_template": a["cmd_template"]}
+                for a in agents
+            ],
+            "models": agents[0].get("models", []) if agents else [],
+            "scenarios": scenario_ids,
+        }
+        (run_dir / "run_config.yaml").write_text(
+            yaml.dump(config, default_flow_style=False, allow_unicode=True, sort_keys=False),
+            encoding="utf-8",
+        )
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
@@ -267,39 +564,7 @@ class RunProgressScreen(Screen):
         st.set_status(idx, status, elapsed)
         self._try_update_ui(idx)
 
-        # Trigger incremental LLM evaluation when all scenarios for this run_name are done
-        if ok:
-            self._maybe_evaluate_run(run_name)
-
         return idx, ok
-
-    def _maybe_evaluate_run(self, run_name: str) -> None:
-        """If all scenarios for run_name are complete, trigger LLM evaluation."""
-        st = self._state
-        # Check if all tasks for this run_name are done
-        for i, (a, _cmd, m, _sid) in enumerate(st.tasks):
-            rn = f"{a}_{make_model_safe(m)}"
-            if rn == run_name and st.status.get(i) not in ("done", "failed", "stopped"):
-                return  # still pending/running
-
-        run_dir = st.run_dir / run_name
-        cache = run_dir / "evaluation.json"
-        if cache.is_file():
-            return  # already evaluated
-
-        # Load analysis config
-        cfg = load_analysis_config()
-        if not cfg.get("model"):
-            return  # LLM not configured
-
-        try:
-            from ..analysis import evaluate_run
-
-            evaluate_run(run_dir, cfg["model"], cfg.get("api_key", ""), cfg.get("base_url", ""))
-        except Exception as e:
-            import sys
-
-            print(f"  [analysis] {run_name} evaluation failed: {e}", file=sys.stderr)
 
     def _try_update_ui(self, idx: int) -> None:
         """Schedule UI update from worker thread. No-op if screen is gone."""
@@ -315,14 +580,43 @@ class RunProgressScreen(Screen):
         self._run_batch(indices)
 
     def _run_batch(self, indices: list[int]) -> None:
+        from collections import defaultdict
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
         self._state.run_dir.mkdir(parents=True, exist_ok=True)
         self._state.running = True
 
-        max_workers = min(len(indices), 4) or 1
-        with ThreadPoolExecutor(max_workers=max_workers) as pool:
-            futures = {pool.submit(self._exec_task, i): i for i in indices}
+        # Group tasks by (agent, model) pair: run scenarios sequentially
+        # within each pair, but run different pairs in parallel.
+        lanes: dict[tuple[str, str], list[int]] = defaultdict(list)
+        for i in indices:
+            agent_name, _cmd, model, _scenario = self._state.tasks[i]
+            lanes[(agent_name, model)].append(i)
+
+        st = self._state
+
+        def run_lane(lane_key: tuple[str, str], task_indices: list[int]) -> None:
+            with st.restart_lock:
+                st.active_lanes.add(lane_key)
+            try:
+                for i in task_indices:
+                    self._exec_task(i)
+                # Drain restart queue: tasks restarted while the lane was running
+                while True:
+                    with st.restart_lock:
+                        queued = st.restart_queue.pop(lane_key, [])
+                    if not queued:
+                        break
+                    for i in queued:
+                        self._exec_task(i)
+            finally:
+                with st.restart_lock:
+                    st.active_lanes.discard(lane_key)
+
+        with ThreadPoolExecutor(max_workers=len(lanes) or 1) as pool:
+            futures = [
+                pool.submit(run_lane, key, idxs) for key, idxs in lanes.items()
+            ]
             for future in as_completed(futures):
                 future.result()
 
@@ -336,26 +630,15 @@ class RunProgressScreen(Screen):
             self.app.call_from_thread(self._on_all_done)
 
     def _finalize_reports(self) -> None:
-        """Generate HTML reports and LLM analysis. Runs in worker thread."""
+        """Generate HTML reports. Runs in worker thread."""
         import sys
 
-        # HTML reports
         from ..report import generate_report
 
         try:
             generate_report(self._state.run_dir)
         except Exception as e:
             print(f"  [report] generation failed: {e}", file=sys.stderr)
-
-        # LLM analysis assembly (from cached per-run evaluations)
-        cfg = load_analysis_config()
-        if cfg.get("model"):
-            from ..analysis import assemble_report
-
-            try:
-                assemble_report(self._state.run_dir, **cfg)
-            except Exception as e:
-                print(f"  [analysis] assembly failed: {e}", file=sys.stderr)
 
     def _refresh_row(self, idx: int) -> None:
         """Update a single row in the UI from current state. Main-thread only."""
@@ -417,7 +700,16 @@ class RunProgressScreen(Screen):
             st.cancel_events.pop(idx, None)
             st.set_status(idx, "pending")
             self._refresh_row(idx)
-            self._run_indices([idx])
+            agent_name, _cmd, model, _scenario = st.tasks[idx]
+            lane_key = (agent_name, model)
+            with st.restart_lock:
+                lane_alive = lane_key in st.active_lanes
+                if lane_alive:
+                    # Lane still running — append; it will drain the queue
+                    st.restart_queue.setdefault(lane_key, []).append(idx)
+            if not lane_alive:
+                # Lane exited (or no active run) — start a new batch
+                self._run_indices([idx])
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         idx = event.cursor_row
@@ -633,11 +925,14 @@ class RunDetailScreen(Screen):
             with contextlib.suppress(json.JSONDecodeError, OSError):
                 self._steps = json.loads(steps_file.read_text(encoding="utf-8"))
 
-        if not self._steps:
+        if not self._steps and self._work_dir.is_dir():
             # Fallback: show raw log files sorted by name (numbered: 01_*, 02_*, ...)
-            log_files = sorted(
-                f.name for f in self._work_dir.iterdir() if f.is_file() and f.suffix == ".log"
-            )
+            try:
+                log_files = sorted(
+                    f.name for f in self._work_dir.iterdir() if f.is_file() and f.suffix == ".log"
+                )
+            except (FileNotFoundError, OSError):
+                log_files = []
             for name in log_files:
                 self._steps.append(
                     {

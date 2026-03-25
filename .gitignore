@@ -1,4 +1,5 @@
 results/
+logs/
 __pycache__/
 .ruff_cache/
 .venv/
@@ -11,6 +12,8 @@ config.yaml
 litmus.yaml
 
 template/
+temp/
+.superpowers/
 .gitnexus/
 .claude/
 .agents/

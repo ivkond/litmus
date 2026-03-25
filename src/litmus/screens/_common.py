@@ -84,9 +84,8 @@ class FilterInput(Input):
 
     async def _on_key(self, event: events.Key) -> None:
         if event.key in ("down", "up"):
-            model_list = self.screen.query_one("#model-list", ModelSelectionList)
+            model_list = self.screen.query_one("#model-list", OptionList)
             model_list.focus()
-            # Forward the key so the list also processes it
             if event.key == "down":
                 model_list.action_cursor_down()
             event.prevent_default()

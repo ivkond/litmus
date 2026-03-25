@@ -79,7 +79,7 @@ class MainMenuScreen(Screen):
         def _item(name: str, desc: str, id: str) -> Option:
             return Option(Text.assemble(name, (f" — {desc}", "dim")), id=id)
 
-        menu.add_option(_item("Models", "select agents & models", "models"))
+        menu.add_option(_item("Models", "view agents & models catalog", "models"))
         menu.add_option(_item("Scenarios", "browse test scenarios", "scenarios"))
         menu.add_option(_item("Run tests", "execute test scenarios", "run"))
         menu.add_option(_item("Results", "browse previous runs", "results"))

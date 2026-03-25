@@ -268,17 +268,19 @@ def run_agent_argv(
 def make_model_safe(model: str) -> str:
     """Make model name filesystem-safe (injective — no collisions).
 
-    Percent-encodes %, /, and : so the mapping is reversible:
-      kilo/kilo-auto/free  -> kilo%2Fkilo-auto%2Ffree
-      kilo/kilo/auto-free  -> kilo%2Fkilo%2Fauto-free
-      a--b                 -> a--b  (unchanged, no collision)
+    Uses tilde-escaping: ~ is the escape char, / and : are replaced.
+    Avoids percent-encoding (%2F) which Node.js agents decode back
+    into slashes, breaking directory paths.
+
+      kilo/minimax/minimax-m2.5:free  -> kilo~fminimax~fminimax-m2.5~cfree
+      claude-sonnet-4-5               -> claude-sonnet-4-5  (unchanged)
     """
-    return model.replace("%", "%25").replace("/", "%2F").replace(":", "%3A")
+    return model.replace("~", "~~").replace("/", "~f").replace(":", "~c")
 
 
 def unmake_model_safe(safe: str) -> str:
     """Reverse of make_model_safe."""
-    return safe.replace("%3A", ":").replace("%2F", "/").replace("%25", "%")
+    return safe.replace("~c", ":").replace("~f", "/").replace("~~", "~")
 
 
 class StepLog:
@@ -397,6 +399,23 @@ def run_single_scenario(
         )
     else:
         agent_dir.mkdir(parents=True)
+
+    # Most coding agents (Claude Code, Codex, OpenCode) require a git repo
+    # to identify the project root and enable file-write tools.
+    # An initial commit is needed — some agents reject repos with no history.
+    # .gitignore prevents agents from indexing .venv (thousands of files,
+    # long paths on Windows cause ENOENT during project scanning).
+    _devnull = {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+    (agent_dir / ".gitignore").write_text(
+        ".venv/\n__pycache__/\n.pytest_cache/\n", encoding="utf-8",
+    )
+    subprocess.run(["git", "init"], cwd=agent_dir, **_devnull)
+    subprocess.run(["git", "add", "."], cwd=agent_dir, **_devnull)
+    subprocess.run(
+        ["git", "-c", "user.name=litmus", "-c", "user.email=litmus@test",
+         "commit", "-m", "init", "--allow-empty"],
+        cwd=agent_dir, **_devnull,
+    )
 
     log = StepLog(work_dir)
     prompt_text = prompt_file.read_text(encoding="utf-8")

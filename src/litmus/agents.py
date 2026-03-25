@@ -3,12 +3,14 @@ Agent registry, detection, and model listing logic.
 No UI code — used by the Textual app screens.
 """
 
+import logging
 import re
 import shutil
 import subprocess
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
@@ -17,6 +19,31 @@ from . import PROJECT_ROOT
 
 CONFIG_PATH = PROJECT_ROOT / "config.yaml"
 CACHE_PATH = PROJECT_ROOT / ".agents_cache.yaml"
+LOG_DIR = PROJECT_ROOT / "logs"
+
+log = logging.getLogger(__name__)
+
+
+def _log_agent_error(
+    agent_name: str,
+    cmd: list[str],
+    error: str,
+    stderr: str = "",
+) -> None:
+    """Append agent error details to logs/error.log."""
+    LOG_DIR.mkdir(exist_ok=True)
+    log_path = LOG_DIR / "error.log"
+    ts = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+    lines = [
+        f"[{ts}] Agent: {agent_name}",
+        f"  Command: {' '.join(cmd)}",
+        f"  Error: {error}",
+    ]
+    if stderr.strip():
+        lines.append("  Stderr:\n    " + "\n    ".join(stderr.strip().splitlines()))
+    lines.append("")
+    with log_path.open("a", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
 
 # ---------------------------------------------------------------------------
 # Parsers: stdout → list[str]
@@ -34,7 +61,7 @@ def _parse_lines(stdout: str) -> list[str]:
         if not line:
             continue
         lower = line.lower()
-        if lower.startswith(("available", "models", "loading", "fetching")):
+        if lower.startswith(("available", "models", "loading", "fetching", "tip:")):
             continue
         models.append(line)
     return models
@@ -116,7 +143,7 @@ AGENT_REGISTRY: list[AgentInfo] = [
     AgentInfo(
         name="OpenCode",
         binaries=["opencode"],
-        cmd_template="opencode run --thinking -q --model {model} {message}",
+        cmd_template="opencode run --thinking --model {model} {message}",
         model_cmd=["opencode", "models"],
     ),
     AgentInfo(
@@ -152,7 +179,6 @@ class DetectedAgent:
     info: AgentInfo
     path: str
     models: list[str] = field(default_factory=list)
-    selected: list[str] = field(default_factory=list)
     error: str = ""
 
 
@@ -177,10 +203,13 @@ def fetch_models(agent: AgentInfo, binary_path: str) -> DetectedAgent:
             detected.models = agent.parse_models(proc.stdout)
         else:
             detected.error = f"exit {proc.returncode}"
+            _log_agent_error(agent.name, cmd, detected.error, proc.stderr)
     except subprocess.TimeoutExpired:
         detected.error = "timeout (30s)"
+        _log_agent_error(agent.name, cmd, detected.error)
     except Exception as e:
         detected.error = str(e)
+        _log_agent_error(agent.name, cmd, detected.error)
     return detected
 
 
@@ -251,26 +280,43 @@ def scan_agents(
 # ---------------------------------------------------------------------------
 
 
-def save_config(detected: list[DetectedAgent]) -> Path | None:
-    agents_data = []
+def add_model_to_cache(agent_name: str, model_name: str) -> bool:
+    """Add a custom model to an agent in the cache. Returns True if added."""
+    cached = load_cache()
+    if cached is None:
+        return False
+    detected, not_found = cached
     for d in detected:
-        if not d.selected:
-            continue
-        agents_data.append(
-            {
-                "name": d.info.name,
-                "binary": d.path,
-                "cmd_template": d.info.cmd_template,
-                "models": d.selected,
-            }
-        )
-    if not agents_data:
-        return None
-    # Preserve existing config sections (e.g. analysis)
-    config = _load_config_raw()
-    config["agents"] = agents_data
-    _write_config(config)
-    return CONFIG_PATH
+        if d.info.name == agent_name:
+            if model_name not in d.models:
+                d.models.append(model_name)
+                _save_cache_pair(detected, not_found)
+                return True
+            return False
+    return False
+
+
+def remove_model_from_cache(agent_name: str, model_name: str) -> bool:
+    """Remove a model from an agent in the cache. Returns True if removed."""
+    cached = load_cache()
+    if cached is None:
+        return False
+    detected, not_found = cached
+    for d in detected:
+        if d.info.name == agent_name:
+            if model_name in d.models:
+                d.models.remove(model_name)
+                _save_cache_pair(detected, not_found)
+                return True
+            return False
+    return False
+
+
+def _save_cache_pair(detected: list[DetectedAgent], not_found: list[str]) -> None:
+    """Save cache from (detected, not_found_names) — internal helper."""
+    registry_by_name = {a.name: a for a in AGENT_REGISTRY}
+    not_found_infos = [registry_by_name[n] for n in not_found if n in registry_by_name]
+    save_cache(detected, not_found_infos)
 
 
 def _load_config_raw() -> dict:
@@ -285,12 +331,6 @@ def _write_config(config: dict) -> None:
         yaml.dump(config, default_flow_style=False, allow_unicode=True, sort_keys=False),
         encoding="utf-8",
     )
-
-
-def load_config() -> dict | None:
-    if not CONFIG_PATH.is_file():
-        return None
-    return yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
 
 
 def load_analysis_config() -> dict:
