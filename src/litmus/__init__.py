@@ -45,9 +45,7 @@ def _init_workspace(target: Path) -> None:
     project = sample / "project"
     project.mkdir(exist_ok=True)
     (project / "main.py").write_text(
-        "def greet(name: str) -> str:\n"
-        '    """Return a greeting for the given name."""\n'
-        "    ...\n",
+        'def greet(name: str) -> str:\n    """Return a greeting for the given name."""\n    ...\n',
         encoding="utf-8",
     )
 
