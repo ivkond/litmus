@@ -91,7 +91,7 @@ AGENT_REGISTRY: list[AgentInfo] = [
     AgentInfo(
         name="Claude Code",
         binaries=["claude"],
-        cmd_template="claude -p --model {model} {message}",
+        cmd_template="claude -p --dangerously-skip-permissions --model {model} {message}",
         model_cmd=None,
         known_models=[
             "claude-sonnet-4-5",
@@ -116,26 +116,26 @@ AGENT_REGISTRY: list[AgentInfo] = [
     AgentInfo(
         name="OpenCode",
         binaries=["opencode"],
-        cmd_template="opencode run --thinking --model {model} {message}",
+        cmd_template="opencode run --thinking -q --model {model} {message}",
         model_cmd=["opencode", "models"],
     ),
     AgentInfo(
         name="KiloCode",
         binaries=["kilocode", "kilo"],
-        cmd_template="kilocode run --thinking --model {model} {message}",
+        cmd_template="kilocode run --auto --thinking --model {model} {message}",
         model_cmd=["kilocode", "models"],
     ),
     AgentInfo(
         name="Aider",
         binaries=["aider"],
-        cmd_template="aider --model {model} --message {message}",
+        cmd_template="aider --yes-always --model {model} --message {message}",
         model_cmd=["aider", "--list-models", "*"],
         parse_models=_parse_aider,
     ),
     AgentInfo(
         name="Cursor Agent",
         binaries=["agent"],
-        cmd_template="agent --print --force --model {model} {message}",
+        cmd_template="agent --print --force --trust --model {model} {message}",
         model_cmd=["agent", "models"],
         parse_models=_parse_cursor,
     ),
