@@ -38,6 +38,9 @@ from ..report import strip_ansi
 from ..run import CancelledError, get_scenario_ids, make_model_safe, run_single_scenario
 from ._common import RESULTS_DIR, TEMPLATE_DIR, ModelSelectionList, OpenWithScreen
 
+_ID_AMP_MODELS_LABEL = "#amp-models-label"
+_ID_RC_SCENARIOS = "#rc-scenarios"
+
 
 class AgentModelPickerScreen(Screen):
     """Modal: pick agents and models for a run."""
@@ -166,7 +169,7 @@ class AgentModelPickerScreen(Screen):
         if filter_text:
             models = [m for m in models if filter_text in m.lower()]
         self._rebuild_models_list(models)
-        label = self.query_one("#amp-models-label", Label)
+        label = self.query_one(_ID_AMP_MODELS_LABEL, Label)
         label.update(f"Models \u2014 {agent_name}")
 
     def _refresh_models_view(self) -> None:
@@ -209,7 +212,7 @@ class AgentModelPickerScreen(Screen):
             else:
                 self._show_all_mode = False
                 self._rebuild_models_list([])
-                self.query_one("#amp-models-label", Label).update("Models")
+                self.query_one(_ID_AMP_MODELS_LABEL, Label).update("Models")
             return
         self._do_show_all_selected()
 
@@ -220,7 +223,7 @@ class AgentModelPickerScreen(Screen):
         if filter_text:
             models = [m for m in models if filter_text in m.lower()]
         self._rebuild_models_list(models)
-        label = self.query_one("#amp-models-label", Label)
+        label = self.query_one(_ID_AMP_MODELS_LABEL, Label)
         label.update(f"All selected ({len(self._selected_models)})")
 
     @on(Button.Pressed, "#amp-ok")
@@ -288,7 +291,7 @@ class RunConfigScreen(Screen):
 
         # Scenarios checklist (all selected)
         scenario_ids = get_scenario_ids(TEMPLATE_DIR)
-        scenarios_sl = self.query_one("#rc-scenarios", ModelSelectionList)
+        scenarios_sl = self.query_one(_ID_RC_SCENARIOS, ModelSelectionList)
         for sid in scenario_ids:
             scenarios_sl.add_option(Selection(sid, sid, True))
 
@@ -316,7 +319,7 @@ class RunConfigScreen(Screen):
 
     def _update_summary(self) -> None:
         active = self._active_agents()
-        scenarios_sl = self.query_one("#rc-scenarios", ModelSelectionList)
+        scenarios_sl = self.query_one(_ID_RC_SCENARIOS, ModelSelectionList)
         n_scenarios = len(scenarios_sl.selected)
         # Each agent runs only its own selected models
         n_agent_model_pairs = sum(len(self._selected_models & set(d.models)) for d in active)
@@ -357,7 +360,7 @@ class RunConfigScreen(Screen):
             )
             return
 
-        selected_scenarios = list(self.query_one("#rc-scenarios", ModelSelectionList).selected)
+        selected_scenarios = list(self.query_one(_ID_RC_SCENARIOS, ModelSelectionList).selected)
         active_agents = self._active_agents()
 
         if not active_agents:

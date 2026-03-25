@@ -25,6 +25,8 @@ from ..agents import (
 )
 from ._common import FilterInput
 
+_ID_MODEL_LIST = "#model-list"
+
 
 class ModelsScreen(Screen):
     BINDINGS = [
@@ -165,7 +167,7 @@ class ModelsScreen(Screen):
         for d in self._detected:
             agent_list.add_option(Option(self._agent_label(d), id=d.info.name))
 
-        self.query_one("#model-list", OptionList).clear_options()
+        self.query_one(_ID_MODEL_LIST, OptionList).clear_options()
 
         if self._not_found:
             names = ", ".join(self._not_found)
@@ -201,7 +203,7 @@ class ModelsScreen(Screen):
         self._populate_model_list(d.models)
 
     def _populate_model_list(self, models: list[str]) -> None:
-        model_list = self.query_one("#model-list", OptionList)
+        model_list = self.query_one(_ID_MODEL_LIST, OptionList)
         model_list.clear_options()
         for m in models:
             model_list.add_option(Option(m, id=m))
@@ -232,7 +234,7 @@ class ModelsScreen(Screen):
     def action_delete(self) -> None:
         if self._current_agent_idx is None:
             return
-        model_list = self.query_one("#model-list", OptionList)
+        model_list = self.query_one(_ID_MODEL_LIST, OptionList)
         idx = model_list.highlighted
         if idx is None:
             return
