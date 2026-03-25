@@ -3,6 +3,9 @@ name: Quality
 on:
   workflow_call:
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Lint (ruff)

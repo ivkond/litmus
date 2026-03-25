@@ -5,6 +5,9 @@ on:
     types: [published]
   workflow_dispatch:  # manual trigger for TestPyPI
 
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Build package
