@@ -5,17 +5,27 @@ updates:
     schedule:
       interval: "weekly"
     target-branch: "main"
+    open-pull-requests-limit: 5
     labels:
       - "dependencies"
     commit-message:
       prefix: "deps"
+    groups:
+      python-deps:
+        patterns:
+          - "*"
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
     target-branch: "main"
+    open-pull-requests-limit: 5
     labels:
       - "ci"
     commit-message:
       prefix: "ci"
+    groups:
+      gh-actions:
+        patterns:
+          - "*"
