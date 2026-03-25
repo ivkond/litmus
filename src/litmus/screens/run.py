@@ -146,11 +146,7 @@ class AgentModelPickerScreen(Screen):
 
     def _compute_selected_agents(self) -> set[str]:
         """Agents that have at least one selected model."""
-        return {
-            d.info.name
-            for d in self._detected
-            if self._selected_models & set(d.models)
-        }
+        return {d.info.name for d in self._detected if self._selected_models & set(d.models)}
 
     # ── Models list rebuild ───────────────────────────────────────────────
 
@@ -182,9 +178,7 @@ class AgentModelPickerScreen(Screen):
 
     # ── Events ────────────────────────────────────────────────────────────
 
-    def on_option_list_option_highlighted(
-        self, event: OptionList.OptionHighlighted
-    ) -> None:
+    def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
         if event.option_list.id == "amp-agents" and event.option and event.option.id:
             self._show_agent_models(event.option.id)
 
@@ -303,10 +297,7 @@ class RunConfigScreen(Screen):
 
     def _active_agents(self) -> list[DetectedAgent]:
         """Agents that have at least one selected model."""
-        return [
-            d for d in self._detected
-            if self._selected_models & set(d.models)
-        ]
+        return [d for d in self._detected if self._selected_models & set(d.models)]
 
     def _update_tree(self) -> None:
         """Rebuild the agent/model tree display."""
@@ -328,9 +319,7 @@ class RunConfigScreen(Screen):
         scenarios_sl = self.query_one("#rc-scenarios", ModelSelectionList)
         n_scenarios = len(scenarios_sl.selected)
         # Each agent runs only its own selected models
-        n_agent_model_pairs = sum(
-            len(self._selected_models & set(d.models)) for d in active
-        )
+        n_agent_model_pairs = sum(len(self._selected_models & set(d.models)) for d in active)
         total = n_agent_model_pairs * n_scenarios
         self.query_one("#rc-summary", Label).update(
             f"Total: {n_agent_model_pairs} agent\u00d7model pairs"
@@ -368,9 +357,7 @@ class RunConfigScreen(Screen):
             )
             return
 
-        selected_scenarios = list(
-            self.query_one("#rc-scenarios", ModelSelectionList).selected
-        )
+        selected_scenarios = list(self.query_one("#rc-scenarios", ModelSelectionList).selected)
         active_agents = self._active_agents()
 
         if not active_agents:
@@ -384,12 +371,14 @@ class RunConfigScreen(Screen):
         agents = []
         for d in active_agents:
             agent_models = sorted(self._selected_models & set(d.models))
-            agents.append({
-                "name": d.info.name,
-                "binary": d.path,
-                "cmd_template": d.info.cmd_template,
-                "models": agent_models,
-            })
+            agents.append(
+                {
+                    "name": d.info.name,
+                    "binary": d.path,
+                    "cmd_template": d.info.cmd_template,
+                    "models": agent_models,
+                }
+            )
 
         self.app.push_screen(RunProgressScreen(agents, selected_scenarios))
 
@@ -617,9 +606,7 @@ class RunProgressScreen(Screen):
                     st.active_lanes.discard(lane_key)
 
         with ThreadPoolExecutor(max_workers=len(lanes) or 1) as pool:
-            futures = [
-                pool.submit(run_lane, key, idxs) for key, idxs in lanes.items()
-            ]
+            futures = [pool.submit(run_lane, key, idxs) for key, idxs in lanes.items()]
             for future in as_completed(futures):
                 future.result()
 
@@ -709,7 +696,8 @@ class RunProgressScreen(Screen):
                     # Lane still running — append; it will drain the queue
                     st.restart_queue.setdefault(lane_key, []).append(idx)
             if not lane_alive:
-                # Lane exited (or no active run) — start a new batch
+                # TOCTOU: lane may finish between lock release and this call.
+                # Worst case: task runs twice (benign — overwrites same dir).
                 self._run_indices([idx])
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:

@@ -1,6 +1,7 @@
 """Shared constants, widgets, and utility screens used across all litmus screens."""
 
 import os
+import shutil
 import subprocess
 import sys
 
@@ -146,11 +147,14 @@ class OpenWithScreen(Screen):
         choice = event.option.id
         path = self._path
 
+        def _resolve(name: str) -> str:
+            return shutil.which(name) or name
+
         try:
             if choice == "vscode":
-                subprocess.Popen(["code", path])
+                subprocess.Popen([_resolve("code"), path])
             elif choice == "zed":
-                subprocess.Popen(["zed", path])
+                subprocess.Popen([_resolve("zed"), path])
             elif choice == "explorer":
                 if sys.platform == "win32":
                     os.startfile(path)

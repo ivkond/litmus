@@ -284,8 +284,14 @@ def make_model_safe(model: str) -> str:
 
 
 def unmake_model_safe(safe: str) -> str:
-    """Reverse of make_model_safe."""
-    return safe.replace("~c", ":").replace("~f", "/").replace("~~", "~")
+    """Reverse of make_model_safe.
+
+    Splits on ~~ first, decodes each segment, then rejoins with ~.
+    This prevents ~~ from being partially matched by ~f or ~c.
+    """
+    parts = safe.split("~~")
+    decoded = [p.replace("~c", ":").replace("~f", "/") for p in parts]
+    return "~".join(decoded)
 
 
 class StepLog:
@@ -409,14 +415,30 @@ def run_single_scenario(
     # .gitignore prevents agents from indexing .venv (thousands of files,
     # long paths on Windows cause ENOENT during project scanning).
     (agent_dir / ".gitignore").write_text(
-        ".venv/\n__pycache__/\n.pytest_cache/\n", encoding="utf-8",
+        ".venv/\n__pycache__/\n.pytest_cache/\n",
+        encoding="utf-8",
     )
-    subprocess.run(["git", "init"], cwd=agent_dir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    subprocess.run(["git", "add", "."], cwd=agent_dir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     subprocess.run(
-        ["git", "-c", "user.name=litmus", "-c", "user.email=litmus@test",
-         "commit", "-m", "init", "--allow-empty"],
-        cwd=agent_dir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        ["git", "init"], cwd=agent_dir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+    )
+    subprocess.run(
+        ["git", "add", "."], cwd=agent_dir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+    )
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=litmus",
+            "-c",
+            "user.email=litmus@test",
+            "commit",
+            "-m",
+            "init",
+            "--allow-empty",
+        ],
+        cwd=agent_dir,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
 
     log = StepLog(work_dir)
