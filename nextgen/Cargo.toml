@@ -1,0 +1,15 @@
+[package]
+name = "litmus-nextgen"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_yml = "0.0.12"
+rusqlite = { version = "0.34", features = ["bundled"] }
+rusqlite_migration = "2"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+csv = "1"
+serde_json = "1"
+thiserror = "2"
