@@ -1,0 +1,6 @@
+criterion,score
+Type hints,1
+Correct get logic,6
+Empty string on missing key,1
+Efficient data structure,1
+All tests pass,1
