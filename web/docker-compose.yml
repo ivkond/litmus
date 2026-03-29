@@ -11,9 +11,12 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY}
       S3_REGION: garage
       DOCKER_HOST: tcp://docker-socket-proxy:2375
+      WORK_ROOT: /var/litmus/work
+      AGENTS_HOST_DIR: ${AGENTS_HOST_DIR:?Set AGENTS_HOST_DIR to the host-absolute path of ./agents (e.g. /home/user/litmus/web/agents)}
+      WORK_HOST_DIR: ${WORK_HOST_DIR:?Set WORK_HOST_DIR to the host-absolute path of ./work (e.g. /home/user/litmus/web/work)}
     volumes:
-      - ./agents/scripts:/opt/agent:ro
-      - agent-workspaces:/var/litmus/work
+      - ./agents:/opt/agent:ro
+      - ./work:/var/litmus/work
     networks:
       - litmus-internal
       - litmus-host
@@ -89,4 +92,3 @@ volumes:
   pgdata:
   garage-data:
   garage-meta:
-  agent-workspaces:

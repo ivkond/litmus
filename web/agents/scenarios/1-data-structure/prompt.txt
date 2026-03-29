@@ -1,0 +1,2 @@
+Implement a Stack class in `project/main.py` with push(value), pop(), peek(), and is_empty() methods.
+The stack should raise IndexError when popping or peeking an empty stack.

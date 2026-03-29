@@ -16,12 +16,15 @@ export const agents = pgTable('agents', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull().unique(),
   version: text('version'),
+  availableModels: jsonb('available_models').default([]),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
 
 export const models = pgTable('models', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull().unique(),
+  /** API-level model identifier passed to agent CLI, e.g. "claude-sonnet-4-20250514" */
+  externalId: text('external_id'),
   provider: text('provider'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
@@ -45,7 +48,7 @@ export const runs = pgTable('runs', {
   startedAt: timestamp('started_at', { withTimezone: true }).defaultNow(),
   finishedAt: timestamp('finished_at', { withTimezone: true }),
   status: text('status', {
-    enum: ['pending', 'running', 'completed', 'failed'],
+    enum: ['pending', 'running', 'completed', 'failed', 'error', 'cancelled'],
   }).default('pending').notNull(),
   configSnapshot: jsonb('config_snapshot'),
 });
@@ -65,6 +68,8 @@ export const runResults = pgTable('run_results', {
   testsTotal: integer('tests_total').notNull().default(0),
   totalScore: real('total_score').notNull().default(0),
   durationSeconds: integer('duration_seconds').notNull().default(0),
+  attempt: integer('attempt').notNull().default(1),
+  maxAttempts: integer('max_attempts').notNull().default(1),
   judgeScores: jsonb('judge_scores'),
   judgeModel: text('judge_model'),
   artifactsS3Key: text('artifacts_s3_key'),
@@ -101,7 +106,7 @@ export const runTasks = pgTable('run_tasks', {
   modelId: uuid('model_id').notNull().references(() => models.id),
   scenarioId: uuid('scenario_id').notNull().references(() => scenarios.id),
   status: text('status', {
-    enum: ['pending', 'running', 'completed', 'failed'],
+    enum: ['pending', 'running', 'completed', 'failed', 'error', 'cancelled'],
   }).default('pending').notNull(),
   containerId: text('container_id'),
   startedAt: timestamp('started_at', { withTimezone: true }),
