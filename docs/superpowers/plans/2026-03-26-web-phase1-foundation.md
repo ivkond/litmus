@@ -83,7 +83,7 @@ web/
 - Create: `web/.gitignore` (via create-next-app, then modify)
 - Delete: `web/tailwind.config.ts` (if generated, not needed for Tailwind v4)
 
-- [ ] **Step 1: Create web directory and initialize Next.js 15**
+- [x] **Step 1: Create web directory and initialize Next.js 15**
 
 ```powershell
 cd C:\projects\moex\experiments\model-selection\litmus
@@ -94,7 +94,7 @@ npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --
 
 Accept defaults when prompted.
 
-- [ ] **Step 2: Delete tailwind.config.ts if it exists**
+- [x] **Step 2: Delete tailwind.config.ts if it exists**
 
 Tailwind v4 uses CSS-first configuration. The JS config file is not needed.
 
@@ -104,7 +104,7 @@ if (Test-Path tailwind.config.ts) { Remove-Item tailwind.config.ts }
 if (Test-Path tailwind.config.js) { Remove-Item tailwind.config.js }
 ```
 
-- [ ] **Step 3: Verify tsconfig.json has `@/*` path alias**
+- [x] **Step 3: Verify tsconfig.json has `@/*` path alias**
 
 Open `web/tsconfig.json` and ensure it contains:
 
@@ -120,7 +120,7 @@ Open `web/tsconfig.json` and ensure it contains:
 
 If `create-next-app` did not generate this (e.g., because no `--import-alias` flag was passed), add it manually under `compilerOptions`. This alias is used throughout the codebase for imports like `@/components/nav-bar` and `@/db/queries`.
 
-- [ ] **Step 4: Install dependencies**
+- [x] **Step 4: Install dependencies**
 
 ```powershell
 cd C:\projects\moex\experiments\model-selection\litmus\web
@@ -128,7 +128,7 @@ npm install drizzle-orm postgres dotenv zod @aws-sdk/client-s3 recharts dockerod
 npm install -D drizzle-kit @types/dockerode tsx
 ```
 
-- [ ] **Step 5: Create `web/.env.example`**
+- [x] **Step 5: Create `web/.env.example`**
 
 ```env
 # Database
@@ -144,7 +144,7 @@ S3_REGION=garage
 DOCKER_HOST=tcp://localhost:2375
 ```
 
-- [ ] **Step 6: Create `web/.env`**
+- [x] **Step 6: Create `web/.env`**
 
 ```powershell
 Copy-Item .env.example .env
@@ -152,7 +152,7 @@ Copy-Item .env.example .env
 
 Values will be updated in Task 2 after Garage bucket initialization.
 
-- [ ] **Step 7: Append to `.gitignore`**
+- [x] **Step 7: Append to `.gitignore`**
 
 Add these lines to the existing `.gitignore`:
 
@@ -161,7 +161,7 @@ Add these lines to the existing `.gitignore`:
 .env.local
 ```
 
-- [ ] **Step 8: Create `web/src/lib/env.ts`**
+- [x] **Step 8: Create `web/src/lib/env.ts`**
 
 ```typescript
 import { z } from 'zod';
@@ -178,7 +178,7 @@ const envSchema = z.object({
 export const env = envSchema.parse(process.env);
 ```
 
-- [ ] **Step 9: Update `web/next.config.ts`**
+- [x] **Step 9: Update `web/next.config.ts`**
 
 Replace the generated content with:
 
@@ -192,7 +192,7 @@ const nextConfig: NextConfig = {
 export default nextConfig;
 ```
 
-- [ ] **Step 10: Verify dev server starts**
+- [x] **Step 10: Verify dev server starts**
 
 ```powershell
 cd C:\projects\moex\experiments\model-selection\litmus\web
@@ -201,7 +201,7 @@ npm run dev
 
 Expected: Server starts on http://localhost:3000, default Next.js page renders. Stop with Ctrl+C.
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```powershell
 cd C:\projects\moex\experiments\model-selection\litmus
@@ -219,7 +219,7 @@ git commit -m "feat(web): initialize Next.js 15 project with dependencies and @/
 - Create: `web/Dockerfile`
 - Modify: `web/.env`
 
-- [ ] **Step 1: Create `web/docker-compose.yml`**
+- [x] **Step 1: Create `web/docker-compose.yml`**
 
 ```yaml
 name: litmus    # Pins the project name so volume/network names are deterministic
@@ -316,7 +316,7 @@ volumes:
 - Mount path is `/opt/agent` (singular) matching the spec's `run.sh` contract.
 - Postgres exposes port 5432 to host for local development.
 
-- [ ] **Step 2: Create `web/garage.toml`**
+- [x] **Step 2: Create `web/garage.toml`**
 
 ```toml
 metadata_dir = "/var/lib/garage/meta"
@@ -343,7 +343,7 @@ bind_addr = "[::]:3901"
 secret = "0000000000000000000000000000000000000000000000000000000000000000"
 ```
 
-- [ ] **Step 3: Create `web/Dockerfile`**
+- [x] **Step 3: Create `web/Dockerfile`**
 
 ```dockerfile
 FROM node:22-alpine AS base
@@ -373,7 +373,7 @@ ENV PORT=3000
 CMD ["node", "server.js"]
 ```
 
-- [ ] **Step 4: Create agents/scripts directory**
+- [x] **Step 4: Create agents/scripts directory**
 
 ```powershell
 cd C:\projects\moex\experiments\model-selection\litmus\web
@@ -381,7 +381,7 @@ New-Item -ItemType Directory -Path agents\scripts -Force
 New-Item -ItemType File -Path agents\scripts\.gitkeep
 ```
 
-- [ ] **Step 5: Start infrastructure services**
+- [x] **Step 5: Start infrastructure services**
 
 ```powershell
 cd C:\projects\moex\experiments\model-selection\litmus\web
@@ -396,7 +396,7 @@ docker compose ps
 
 Expected: `postgres` shows `healthy`, `garage` and `docker-socket-proxy` show `running`.
 
-- [ ] **Step 6: Initialize Garage node and buckets (FIRST RUN ONLY)**
+- [x] **Step 6: Initialize Garage node and buckets (FIRST RUN ONLY)**
 
 Garage requires manual bootstrap on first start. These commands are **not idempotent** — they will error on re-run if entities already exist. This is expected and harmless.
 
@@ -449,7 +449,7 @@ docker compose exec garage /garage bucket list
 
 Expected: Three buckets listed — `litmus-scenarios`, `litmus-artifacts`, `litmus-packs`.
 
-- [ ] **Step 7: Update `.env` with Garage credentials**
+- [x] **Step 7: Update `.env` with Garage credentials**
 
 Edit `web/.env` and replace the S3 placeholder values with the actual key ID and secret from Step 6:
 
@@ -458,7 +458,7 @@ S3_ACCESS_KEY=<Key ID from step 6>
 S3_SECRET_KEY=<Secret key from step 6>
 ```
 
-- [ ] **Step 8: Verify Postgres connection**
+- [x] **Step 8: Verify Postgres connection**
 
 ```powershell
 docker compose exec postgres psql -U litmus -c "SELECT version();"
@@ -466,7 +466,7 @@ docker compose exec postgres psql -U litmus -c "SELECT version();"
 
 Expected: PostgreSQL 16.x version string.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```powershell
 cd C:\projects\moex\experiments\model-selection\litmus
@@ -484,7 +484,7 @@ git commit -m "feat(web): add Docker Compose with postgres, garage, socket-proxy
 - Create: `web/src/db/index.ts`
 - Create: `web/src/db/migrate-views.ts`
 
-- [ ] **Step 1: Create `web/drizzle.config.ts`**
+- [x] **Step 1: Create `web/drizzle.config.ts`**
 
 ```typescript
 import 'dotenv/config';
@@ -500,7 +500,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 2: Create `web/src/db/schema.ts`**
+- [x] **Step 2: Create `web/src/db/schema.ts`**
 
 ```typescript
 import {
@@ -629,7 +629,7 @@ export type AgentExecutor = typeof agentExecutors.$inferSelect;
 export type RunTask = typeof runTasks.$inferSelect;
 ```
 
-- [ ] **Step 3: Create `web/src/db/index.ts`**
+- [x] **Step 3: Create `web/src/db/index.ts`**
 
 ```typescript
 import { drizzle } from 'drizzle-orm/postgres-js';
@@ -645,7 +645,7 @@ export const db = drizzle(client, { schema });
 export const sql = client;
 ```
 
-- [ ] **Step 4: Create `web/src/db/migrate-views.ts`**
+- [x] **Step 4: Create `web/src/db/migrate-views.ts`**
 
 This script creates/refreshes materialized views. It's tracked in version control and called both during initial setup and after schema changes.
 
@@ -716,7 +716,7 @@ migrateViews().catch((err) => {
 });
 ```
 
-- [ ] **Step 5: Add db scripts to package.json**
+- [x] **Step 5: Add db scripts to package.json**
 
 Add to the `"scripts"` section of `web/package.json`:
 
@@ -728,7 +728,7 @@ Add to the `"scripts"` section of `web/package.json`:
 "db:seed": "npx tsx src/db/seed.ts"
 ```
 
-- [ ] **Step 6: Generate table migration**
+- [x] **Step 6: Generate table migration**
 
 ```powershell
 cd C:\projects\moex\experiments\model-selection\litmus\web
@@ -737,7 +737,7 @@ npm run db:generate
 
 Expected: Creates `drizzle/0000_*.sql` with CREATE TABLE statements for all 7 tables.
 
-- [ ] **Step 7: Run table migration**
+- [x] **Step 7: Run table migration**
 
 ```powershell
 npm run db:migrate
@@ -751,7 +751,7 @@ docker compose exec postgres psql -U litmus -c "\dt"
 
 Should list: `agents`, `models`, `scenarios`, `runs`, `run_results`, `agent_executors`, `run_tasks`.
 
-- [ ] **Step 8: Run materialized view migration**
+- [x] **Step 8: Run materialized view migration**
 
 ```powershell
 npm run db:views
@@ -765,7 +765,7 @@ docker compose exec postgres psql -U litmus -c "\dm"
 
 Should list: `latest_results`, `score_by_model`, `score_by_agent`.
 
-- [ ] **Step 9: Verify full setup path works from scratch**
+- [x] **Step 9: Verify full setup path works from scratch**
 
 To prove a new developer can bootstrap from zero, drop the database and recreate:
 
@@ -783,7 +783,7 @@ docker compose exec postgres psql -U litmus -c "\dm"
 
 Should list all 7 tables and 3 views. This proves the setup path is complete and order-independent of manual steps.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```powershell
 cd C:\projects\moex\experiments\model-selection\litmus
@@ -799,7 +799,7 @@ git commit -m "feat(web): add Drizzle schema, migrations, and materialized views
 - Create: `web/src/lib/s3.ts`
 - Create: `web/src/lib/s3-smoke-test.ts`
 
-- [ ] **Step 1: Create `web/src/lib/s3.ts`**
+- [x] **Step 1: Create `web/src/lib/s3.ts`**
 
 ```typescript
 import {
@@ -879,7 +879,7 @@ export async function deleteFile(
 export { s3 };
 ```
 
-- [ ] **Step 2: Create `web/src/lib/s3-smoke-test.ts`**
+- [x] **Step 2: Create `web/src/lib/s3-smoke-test.ts`**
 
 ```typescript
 import 'dotenv/config';
@@ -918,7 +918,7 @@ smokeTest().catch((err) => {
 });
 ```
 
-- [ ] **Step 3: Add smoke-test script to package.json**
+- [x] **Step 3: Add smoke-test script to package.json**
 
 Add to `"scripts"`:
 
@@ -926,7 +926,7 @@ Add to `"scripts"`:
 "s3:test": "npx tsx src/lib/s3-smoke-test.ts"
 ```
 
-- [ ] **Step 4: Run S3 smoke test**
+- [x] **Step 4: Run S3 smoke test**
 
 ```powershell
 cd C:\projects\moex\experiments\model-selection\litmus\web
@@ -945,7 +945,7 @@ S3 smoke test PASSED.
 
 If it fails: verify `.env` credentials match the Garage key created in Task 2.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 cd C:\projects\moex\experiments\model-selection\litmus
@@ -968,7 +968,7 @@ This task creates the full design system, root layout with fonts, and all primit
 - Create: `web/src/components/theme-toggle.tsx`
 - Create: `web/src/components/nav-bar.tsx`
 
-- [ ] **Step 1: Replace `web/src/app/globals.css`**
+- [x] **Step 1: Replace `web/src/app/globals.css`**
 
 Delete all default content. Write:
 
@@ -1061,7 +1061,7 @@ body::before {
 }
 ```
 
-- [ ] **Step 2: Replace `web/src/app/layout.tsx`**
+- [x] **Step 2: Replace `web/src/app/layout.tsx`**
 
 This is the **final version** — includes fonts, theme attribute, and NavBar.
 
@@ -1111,7 +1111,7 @@ export default function RootLayout({
 }
 ```
 
-- [ ] **Step 3: Create `web/src/components/ui/card.tsx`**
+- [x] **Step 3: Create `web/src/components/ui/card.tsx`**
 
 ```tsx
 import { type HTMLAttributes } from 'react';
@@ -1137,7 +1137,7 @@ export function Card({ hover = false, className = '', children, ...props }: Card
 }
 ```
 
-- [ ] **Step 4: Create `web/src/components/ui/badge.tsx`**
+- [x] **Step 4: Create `web/src/components/ui/badge.tsx`**
 
 ```tsx
 interface BadgeProps {
@@ -1170,7 +1170,7 @@ export function Badge({ children, variant = 'default', className = '' }: BadgePr
 }
 ```
 
-- [ ] **Step 5: Create `web/src/components/stat-card.tsx`**
+- [x] **Step 5: Create `web/src/components/stat-card.tsx`**
 
 ```tsx
 import { Card } from './ui/card';
@@ -1198,7 +1198,7 @@ export function StatCard({ label, value, subtitle }: StatCardProps) {
 }
 ```
 
-- [ ] **Step 6: Create `web/src/components/theme-toggle.tsx`**
+- [x] **Step 6: Create `web/src/components/theme-toggle.tsx`**
 
 ```tsx
 'use client';
@@ -1256,7 +1256,7 @@ export function ThemeToggle() {
 }
 ```
 
-- [ ] **Step 7: Create `web/src/components/nav-bar.tsx`**
+- [x] **Step 7: Create `web/src/components/nav-bar.tsx`**
 
 Desktop-only pill navigation. Mobile hamburger deferred to Phase 4.
 
@@ -1324,7 +1324,7 @@ export function NavBar() {
 }
 ```
 
-- [ ] **Step 8: Verify design system renders end-to-end**
+- [x] **Step 8: Verify design system renders end-to-end**
 
 ```powershell
 cd C:\projects\moex\experiments\model-selection\litmus\web
@@ -1340,7 +1340,7 @@ Open http://localhost:3000. Verify:
 - JetBrains Mono visible on "LITMUS" and nav items
 - DM Sans visible on body text
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```powershell
 cd C:\projects\moex\experiments\model-selection\litmus
@@ -1355,7 +1355,7 @@ git commit -m "feat(web): add Lab Instrument design system, nav-bar, theme toggl
 **Files:**
 - Create: `web/src/db/seed.ts`
 
-- [ ] **Step 1: Create `web/src/db/seed.ts`**
+- [x] **Step 1: Create `web/src/db/seed.ts`**
 
 This script is idempotent: it truncates all data tables (CASCADE) then re-inserts. Safe to run repeatedly.
 
@@ -1471,7 +1471,7 @@ seed().catch((err) => {
 });
 ```
 
-- [ ] **Step 2: Run seed**
+- [x] **Step 2: Run seed**
 
 ```powershell
 cd C:\projects\moex\experiments\model-selection\litmus\web
@@ -1480,7 +1480,7 @@ npm run db:seed
 
 Expected: `Seeded: 3 agents, 4 models, 6 scenarios, 72 results`
 
-- [ ] **Step 3: Run seed again to verify idempotency**
+- [x] **Step 3: Run seed again to verify idempotency**
 
 ```powershell
 npm run db:seed
@@ -1494,7 +1494,7 @@ docker compose exec postgres psql -U litmus -c "SELECT COUNT(*) FROM run_results
 
 Expected: `72`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```powershell
 cd C:\projects\moex\experiments\model-selection\litmus
@@ -1510,7 +1510,7 @@ git commit -m "feat(web): add idempotent seed script with deterministic sample d
 - Replace: `web/src/app/page.tsx`
 - Create: `web/src/db/queries.ts`
 
-- [ ] **Step 1: Create `web/src/db/queries.ts`**
+- [x] **Step 1: Create `web/src/db/queries.ts`**
 
 The spec requires Recent Activity with columns: `run ID, agent×model combos, scenarios count, pass rate, date` (spec updated: each row = one run, agent×model column aggregates all tested combinations as comma-separated list). This query returns per-run data matching that contract.
 
@@ -1588,7 +1588,7 @@ export async function getRecentRuns(limit = 10): Promise<RecentRunRow[]> {
 }
 ```
 
-- [ ] **Step 2: Replace `web/src/app/page.tsx`**
+- [x] **Step 2: Replace `web/src/app/page.tsx`**
 
 ```tsx
 import Link from 'next/link';
@@ -1698,7 +1698,7 @@ export default async function DashboardPage() {
 }
 ```
 
-- [ ] **Step 3: Verify Dashboard renders with seed data**
+- [x] **Step 3: Verify Dashboard renders with seed data**
 
 ```powershell
 cd C:\projects\moex\experiments\model-selection\litmus\web
@@ -1711,7 +1711,7 @@ Open http://localhost:3000. Verify:
 - Recent Activity table with columns: **Run ID**, **Agent x Model**, **Scenarios**, **Pass Rate**, **Date**
 - Table shows 1 row with: 8-char run ID, comma-separated agent×model pairs, scenario count 6, a pass rate percentage, today's date
 
-- [ ] **Step 4: Verify light theme rendering**
+- [x] **Step 4: Verify light theme rendering**
 
 Click theme toggle twice (dark → light). Verify:
 - Warm ivory background (#FAF9F7)
@@ -1719,7 +1719,7 @@ Click theme toggle twice (dark → light). Verify:
 - Cards have white background with subtle border
 - Table text contrast is sufficient
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 cd C:\projects\moex\experiments\model-selection\litmus
@@ -1727,7 +1727,7 @@ git add web/src/db/queries.ts web/src/app/page.tsx
 git commit -m "feat(web): add Dashboard page with stats, quick actions, and recent activity per spec"
 ```
 
-- [ ] **Step 6: Stop host dev server**
+- [x] **Step 6: Stop host dev server**
 
 Before Task 8 starts the containerized build on port 3000, the host dev server must be stopped. Press `Ctrl+C` in the terminal running `npm run dev`, or close it. Verify the port is free:
 
@@ -1744,7 +1744,7 @@ This task verifies that `litmus-web` runs correctly inside Docker Compose, provi
 
 **Files:** None (verification only)
 
-- [ ] **Step 1: Build the litmus-web image**
+- [x] **Step 1: Build the litmus-web image**
 
 ```powershell
 cd C:\projects\moex\experiments\model-selection\litmus\web
@@ -1753,7 +1753,7 @@ docker compose --profile full build litmus-web
 
 Expected: Multi-stage build completes without errors.
 
-- [ ] **Step 2: Start all services including litmus-web**
+- [x] **Step 2: Start all services including litmus-web**
 
 ```powershell
 docker compose --profile full up -d
@@ -1761,7 +1761,7 @@ docker compose --profile full up -d
 
 Expected: All 4 services running.
 
-- [ ] **Step 3: Verify litmus-web serves the Dashboard**
+- [x] **Step 3: Verify litmus-web serves the Dashboard**
 
 Wait a few seconds for startup, then:
 
@@ -1774,7 +1774,7 @@ Expected: Next.js starts on port 3000. No connection errors to postgres or garag
 
 Open http://localhost:3000 — should show the Dashboard with seed data (same as host-dev mode).
 
-- [ ] **Step 4: Stop containerized litmus-web, return to host-dev**
+- [x] **Step 4: Stop containerized litmus-web, return to host-dev**
 
 ```powershell
 docker compose --profile full stop litmus-web
@@ -1785,7 +1785,7 @@ For continued development, use host-dev mode:
 npm run dev
 ```
 
-- [ ] **Step 5: Commit (no file changes — this is verification only)**
+- [x] **Step 5: Commit (no file changes — this is verification only)**
 
 No commit needed. But if any Dockerfile fixes were required, commit them:
 
@@ -1801,22 +1801,22 @@ git commit -m "fix(web): update Dockerfile for containerized runtime"
 
 After all 8 tasks, verify:
 
-- [ ] `docker compose up -d` — postgres, garage, socket-proxy all running/healthy
-- [ ] `npm run dev` — Next.js starts on :3000 without errors (host-dev mode)
-- [ ] `docker compose --profile full up -d` — litmus-web container starts and serves Dashboard
-- [ ] `npm run db:setup` — creates tables + materialized views from scratch (idempotent)
-- [ ] `npm run db:seed` — populates data (idempotent, safe to run twice)
-- [ ] `npm run s3:test` — S3 put/get/delete verified against Garage
-- [ ] Dashboard shows seed data: 4 stat cards, quick-action cards, recent activity table
-- [ ] Recent Activity columns match spec: Run ID, Agent×Model, Scenarios, Pass Rate, Date
-- [ ] Theme toggle cycles dark → light → system, all themes visually correct
-- [ ] Dark theme: #0C0E12 background, #D4A041 accent, grid texture, JetBrains Mono on data
-- [ ] Light theme: #FAF9F7 background, #C49335 accent, pastel tones
-- [ ] Pill navigation with 5 items, active item highlighted in amber
-- [ ] `tsconfig.json` has `@/*` path alias, all imports use it
-- [ ] Database has 7 tables + 3 materialized views with unique indexes
-- [ ] `litmus-internal` network has `internal: true`
-- [ ] Agent mount path is `/opt/agent` (singular) matching spec
+- [x] `docker compose up -d` — postgres, garage, socket-proxy all running/healthy
+- [x] `npm run dev` — Next.js starts on :3000 without errors (host-dev mode)
+- [x] `docker compose --profile full up -d` — litmus-web container starts and serves Dashboard
+- [x] `npm run db:setup` — creates tables + materialized views from scratch (idempotent)
+- [x] `npm run db:seed` — populates data (idempotent, safe to run twice)
+- [x] `npm run s3:test` — S3 put/get/delete verified against Garage
+- [x] Dashboard shows seed data: 4 stat cards, quick-action cards, recent activity table
+- [x] Recent Activity columns match spec: Run ID, Agent×Model, Scenarios, Pass Rate, Date
+- [x] Theme toggle cycles dark → light → system, all themes visually correct
+- [x] Dark theme: #0C0E12 background, #D4A041 accent, grid texture, JetBrains Mono on data
+- [x] Light theme: #FAF9F7 background, #C49335 accent, pastel tones
+- [x] Pill navigation with 5 items, active item highlighted in amber
+- [x] `tsconfig.json` has `@/*` path alias, all imports use it
+- [x] Database has 7 tables + 3 materialized views with unique indexes
+- [x] `litmus-internal` network has `internal: true`
+- [x] Agent mount path is `/opt/agent` (singular) matching spec
 
 ---
 

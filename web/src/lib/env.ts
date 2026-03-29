@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const envSchema = z.object({
+const envShape = {
   DATABASE_URL: z.string().min(1),
   S3_ENDPOINT: z.string().min(1),
   S3_ACCESS_KEY: z.string().min(1),
@@ -12,6 +12,25 @@ const envSchema = z.object({
   WORK_HOST_DIR: z.string().optional(),
   REDIS_URL: z.string().default('redis://localhost:6379'),
   JUDGE_ENCRYPTION_KEY: z.string().length(64).optional(), // 32 bytes hex, optional until judge system is configured
-});
+} as const;
 
-export const env = envSchema.parse(process.env);
+const envSchema = z.object(envShape);
+type Env = z.infer<typeof envSchema>;
+type EnvKey = keyof typeof envShape;
+
+function readEnvValue<K extends EnvKey>(key: K): Env[K] {
+  const parsed = envShape[key].safeParse(process.env[key]);
+  if (!parsed.success) {
+    const message = parsed.error.issues[0]?.message ?? 'Invalid value';
+    throw new Error(`[env] ${String(key)}: ${message}`);
+  }
+  return parsed.data as Env[K];
+}
+
+export const env: Env = new Proxy({} as Env, {
+  get(_target, prop: string | symbol): unknown {
+    if (typeof prop !== 'string') return undefined;
+    if (!(prop in envShape)) return undefined;
+    return readEnvValue(prop as EnvKey);
+  },
+});

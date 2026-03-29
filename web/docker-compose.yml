@@ -1,10 +1,11 @@
-name: litmus    # Pins the project name so volume/network names are deterministic
+name: litmus # Pins the project name so volume/network names are deterministic
 
 services:
   litmus-web:
     build: .
     ports: ["3000:3000"]
     environment:
+      HOST: 0.0.0.0
       DATABASE_URL: postgres://litmus:litmus@postgres:5432/litmus
       S3_ENDPOINT: http://garage:3900
       S3_ACCESS_KEY: ${S3_ACCESS_KEY}
@@ -30,7 +31,7 @@ services:
         condition: service_started
       valkey:
         condition: service_healthy
-    profiles: ["full"]  # Only started with: docker compose --profile full up
+    profiles: ["full"] # Only started with: docker compose --profile full up
 
   docker-socket-proxy:
     image: tecnativa/docker-socket-proxy:latest
@@ -64,7 +65,7 @@ services:
       retries: 5
     networks:
       - litmus-internal
-      - litmus-host    # host port publishing (internal: true blocks it)
+      - litmus-host # host port publishing (internal: true blocks it)
 
   valkey:
     image: valkey/valkey:8-alpine
@@ -92,7 +93,7 @@ services:
       - ./garage.toml:/etc/garage.toml
     networks:
       - litmus-internal
-      - litmus-host    # host port publishing
+      - litmus-host # host port publishing
 
 networks:
   litmus-internal:

@@ -50,7 +50,9 @@ export function subscribe(
   filterKey: string,
   handler: EventHandler
 ): () => void {
-  ensureSubscribed();
+  void ensureSubscribed().catch((err: unknown) => {
+    console.error('[RedisBus] Subscribe failed:', err);
+  });
   if (!localHandlers.has(filterKey)) {
     localHandlers.set(filterKey, new Set());
   }
