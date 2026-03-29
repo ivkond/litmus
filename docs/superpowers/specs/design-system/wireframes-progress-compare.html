@@ -1,0 +1,210 @@
+<h2>Litmus Web — Screens: Progress & Compare</h2>
+<p class="subtitle">Run progress tracking and comparison lenses</p>
+
+<!-- Progress View -->
+<div class="mockup" style="margin-bottom: 32px;">
+  <div class="mockup-header">2b. Run — Progress View</div>
+  <div class="mockup-body" style="padding: 24px; font-size: 12px;">
+    <!-- Progress bar -->
+    <div style="margin-bottom: 20px;">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+        <span style="color: #ccc; font-weight: bold;">Batch Progress</span>
+        <span style="color: #888;">7 / 12 completed &middot; ETA ~4 min</span>
+      </div>
+      <div style="height: 8px; background: #333; border-radius: 4px; overflow: hidden;">
+        <div style="width: 58%; height: 100%; background: linear-gradient(90deg, #f97316, #fb923c); border-radius: 4px;"></div>
+      </div>
+    </div>
+
+    <!-- Now running -->
+    <div style="background: rgba(249,115,22,0.08); border: 1px solid rgba(249,115,22,0.3); border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <span style="color: #f97316;">&#9654;</span>
+        <span style="color: #ccc; font-weight: bold;">Now running:</span>
+        <span style="color: #ccc;">Claude Code &times; opus-4 &times; 5-debugging</span>
+      </div>
+      <span style="color: #888; font-family: monospace;">2m 34s</span>
+    </div>
+
+    <!-- Matrix table -->
+    <div style="border: 1px solid #333; border-radius: 8px; overflow: hidden;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+        <thead>
+          <tr style="background: rgba(255,255,255,0.03);">
+            <th style="padding: 10px 12px; text-align: left; color: #888; border-bottom: 1px solid #333;">Agent &times; Model</th>
+            <th style="padding: 10px 8px; text-align: center; color: #888; border-bottom: 1px solid #333;">1-data</th>
+            <th style="padding: 10px 8px; text-align: center; color: #888; border-bottom: 1px solid #333;">2-arch</th>
+            <th style="padding: 10px 8px; text-align: center; color: #888; border-bottom: 1px solid #333;">3-test</th>
+            <th style="padding: 10px 8px; text-align: center; color: #888; border-bottom: 1px solid #333;">4-refactor</th>
+            <th style="padding: 10px 8px; text-align: center; color: #888; border-bottom: 1px solid #333;">5-debug</th>
+            <th style="padding: 10px 8px; text-align: center; color: #888; border-bottom: 1px solid #333;">6-api</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom: 1px solid #222;">
+            <td style="padding: 10px 12px; color: #ccc;">Claude Code &times; opus-4</td>
+            <td style="padding: 8px; text-align: center;"><span style="color: #10b981;">&#10003; 92%</span></td>
+            <td style="padding: 8px; text-align: center;"><span style="color: #10b981;">&#10003; 88%</span></td>
+            <td style="padding: 8px; text-align: center;"><span style="color: #10b981;">&#10003; 95%</span></td>
+            <td style="padding: 8px; text-align: center;"><span style="color: #10b981;">&#10003; 85%</span></td>
+            <td style="padding: 8px; text-align: center;"><span style="color: #f97316; animation: pulse 1.5s infinite;">&#9654; ...</span></td>
+            <td style="padding: 8px; text-align: center;"><span style="color: #666;">&mdash;</span></td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 12px; color: #ccc;">Claude Code &times; sonnet-4</td>
+            <td style="padding: 8px; text-align: center;"><span style="color: #10b981;">&#10003; 78%</span></td>
+            <td style="padding: 8px; text-align: center;"><span style="color: #facc15;">&#10003; 65%</span></td>
+            <td style="padding: 8px; text-align: center;"><span style="color: #10b981;">&#10003; 82%</span></td>
+            <td style="padding: 8px; text-align: center;"><span style="color: #666;">&mdash;</span></td>
+            <td style="padding: 8px; text-align: center;"><span style="color: #666;">&mdash;</span></td>
+            <td style="padding: 8px; text-align: center;"><span style="color: #666;">&mdash;</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <style>@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }</style>
+  </div>
+</div>
+
+<!-- Compare: Lens Picker -->
+<div class="mockup" style="margin-bottom: 32px;">
+  <div class="mockup-header">3a. Compare — Lens Picker</div>
+  <div class="mockup-body" style="padding: 24px; font-size: 12px;">
+    <div style="color: #888; margin-bottom: 16px;">Choose how to slice your benchmark data</div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <!-- Row 1: Rankings -->
+      <div style="border: 2px solid #3b82f6; border-radius: 10px; padding: 20px; cursor: pointer; background: rgba(59,130,246,0.05);">
+        <div style="font-size: 10px; color: #3b82f6; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Ranking</div>
+        <div style="font-weight: bold; color: #ccc; font-size: 15px; margin-bottom: 6px;">Compare Models</div>
+        <div style="color: #888; font-size: 11px; margin-bottom: 12px;">"Which model is best overall?"</div>
+        <div style="color: #666; font-size: 10px;">12 models &middot; avg across 4 agents</div>
+      </div>
+
+      <div style="border: 2px solid #3b82f6; border-radius: 10px; padding: 20px; cursor: pointer; background: rgba(59,130,246,0.05);">
+        <div style="font-size: 10px; color: #3b82f6; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Ranking</div>
+        <div style="font-weight: bold; color: #ccc; font-size: 15px; margin-bottom: 6px;">Compare Agents</div>
+        <div style="color: #888; font-size: 11px; margin-bottom: 12px;">"Which agent is best overall?"</div>
+        <div style="color: #666; font-size: 10px;">4 agents &middot; avg across 12 models</div>
+      </div>
+
+      <!-- Row 2: Detailed -->
+      <div style="border: 2px solid #10b981; border-radius: 10px; padding: 20px; cursor: pointer; background: rgba(16,185,129,0.05);">
+        <div style="font-size: 10px; color: #10b981; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Detailed</div>
+        <div style="font-weight: bold; color: #ccc; font-size: 15px; margin-bottom: 6px;">Agent &times; Models</div>
+        <div style="color: #888; font-size: 11px; margin-bottom: 12px;">"How does KiloCode work with different models?"</div>
+        <div style="color: #666; font-size: 10px;">Fix one agent &rarr; compare its models</div>
+      </div>
+
+      <div style="border: 2px solid #10b981; border-radius: 10px; padding: 20px; cursor: pointer; background: rgba(16,185,129,0.05);">
+        <div style="font-size: 10px; color: #10b981; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Detailed</div>
+        <div style="font-weight: bold; color: #ccc; font-size: 15px; margin-bottom: 6px;">Model &times; Agents</div>
+        <div style="color: #888; font-size: 11px; margin-bottom: 12px;">"How does Sonnet 4 behave across agents?"</div>
+        <div style="color: #666; font-size: 10px;">Fix one model &rarr; compare agents using it</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Compare: Leaderboard + Heatmap -->
+<div class="mockup">
+  <div class="mockup-header">3b. Compare — Leaderboard + Heatmap (Compare Models lens)</div>
+  <div class="mockup-body" style="padding: 24px; font-size: 12px;">
+
+    <!-- Leaderboard -->
+    <div style="font-weight: bold; color: #ccc; margin-bottom: 12px;">Model Leaderboard</div>
+    <div style="border: 1px solid #333; border-radius: 8px; overflow: hidden; margin-bottom: 24px;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+        <thead>
+          <tr style="background: rgba(255,255,255,0.03);">
+            <th style="padding: 10px 12px; text-align: left; color: #888; width: 40px;">#</th>
+            <th style="padding: 10px 12px; text-align: left; color: #888;">Model</th>
+            <th style="padding: 10px 12px; text-align: right; color: #888;">Avg Score</th>
+            <th style="padding: 10px 12px; text-align: right; color: #888;">Tested in</th>
+            <th style="padding: 10px 12px; text-align: right; color: #888;">Coverage</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-top: 1px solid #333;">
+            <td style="padding: 10px 12px; font-size: 16px;">&#129351;</td>
+            <td style="padding: 10px 12px; color: #ccc; font-weight: bold;">claude-opus-4</td>
+            <td style="padding: 10px 12px; text-align: right; color: #10b981; font-weight: bold; font-size: 14px;">91.2%</td>
+            <td style="padding: 10px 12px; text-align: right; color: #888;">3 agents</td>
+            <td style="padding: 10px 12px; text-align: right;"><div style="width: 60px; height: 6px; background: #333; border-radius: 3px; display: inline-block;"><div style="width: 100%; height: 100%; background: #10b981; border-radius: 3px;"></div></div></td>
+          </tr>
+          <tr style="border-top: 1px solid #222;">
+            <td style="padding: 10px 12px; font-size: 16px;">&#129352;</td>
+            <td style="padding: 10px 12px; color: #ccc;">gpt-4.1</td>
+            <td style="padding: 10px 12px; text-align: right; color: #10b981; font-size: 14px;">87.5%</td>
+            <td style="padding: 10px 12px; text-align: right; color: #888;">2 agents</td>
+            <td style="padding: 10px 12px; text-align: right;"><div style="width: 60px; height: 6px; background: #333; border-radius: 3px; display: inline-block;"><div style="width: 66%; height: 100%; background: #facc15; border-radius: 3px;"></div></div></td>
+          </tr>
+          <tr style="border-top: 1px solid #222;">
+            <td style="padding: 10px 12px; font-size: 16px;">&#129353;</td>
+            <td style="padding: 10px 12px; color: #ccc;">claude-sonnet-4</td>
+            <td style="padding: 10px 12px; text-align: right; color: #facc15; font-size: 14px;">79.8%</td>
+            <td style="padding: 10px 12px; text-align: right; color: #888;">4 agents</td>
+            <td style="padding: 10px 12px; text-align: right;"><div style="width: 60px; height: 6px; background: #333; border-radius: 3px; display: inline-block;"><div style="width: 100%; height: 100%; background: #10b981; border-radius: 3px;"></div></div></td>
+          </tr>
+          <tr style="border-top: 1px solid #222;">
+            <td style="padding: 10px 12px; color: #888;">4</td>
+            <td style="padding: 10px 12px; color: #888;">gemini-2.5-pro</td>
+            <td style="padding: 10px 12px; text-align: right; color: #facc15; font-size: 14px;">72.1%</td>
+            <td style="padding: 10px 12px; text-align: right;">
+              <span style="color: #facc15; font-size: 10px;">&#9888;</span>
+              <span style="color: #facc15;">1 agent</span>
+            </td>
+            <td style="padding: 10px 12px; text-align: right;"><div style="width: 60px; height: 6px; background: #333; border-radius: 3px; display: inline-block;"><div style="width: 25%; height: 100%; background: #ef4444; border-radius: 3px;"></div></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Heatmap -->
+    <div style="font-weight: bold; color: #ccc; margin-bottom: 12px;">Per-Scenario Heatmap</div>
+    <div style="border: 1px solid #333; border-radius: 8px; overflow: hidden;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: center;">
+        <thead>
+          <tr style="background: rgba(255,255,255,0.03);">
+            <th style="padding: 8px 12px; text-align: left; color: #888;">Scenario</th>
+            <th style="padding: 8px; color: #888;">opus-4</th>
+            <th style="padding: 8px; color: #888;">gpt-4.1</th>
+            <th style="padding: 8px; color: #888;">sonnet-4</th>
+            <th style="padding: 8px; color: #888;">gemini-2.5</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-top: 1px solid #222;">
+            <td style="padding: 8px 12px; text-align: left; color: #ccc;">1-data-structure</td>
+            <td style="padding: 6px;"><span style="background: rgba(16,185,129,0.25); color: #10b981; padding: 3px 8px; border-radius: 4px; font-weight: bold;">95%</span></td>
+            <td style="padding: 6px;"><span style="background: rgba(16,185,129,0.15); color: #10b981; padding: 3px 8px; border-radius: 4px;">88%</span></td>
+            <td style="padding: 6px;"><span style="background: rgba(250,204,21,0.15); color: #facc15; padding: 3px 8px; border-radius: 4px;">72%</span></td>
+            <td style="padding: 6px;"><span style="background: rgba(250,204,21,0.15); color: #facc15; padding: 3px 8px; border-radius: 4px;">68%</span></td>
+          </tr>
+          <tr style="border-top: 1px solid #222;">
+            <td style="padding: 8px 12px; text-align: left; color: #ccc;">2-simple-arch</td>
+            <td style="padding: 6px;"><span style="background: rgba(16,185,129,0.15); color: #10b981; padding: 3px 8px; border-radius: 4px;">90%</span></td>
+            <td style="padding: 6px;"><span style="background: rgba(16,185,129,0.25); color: #10b981; padding: 3px 8px; border-radius: 4px; font-weight: bold;">92%</span></td>
+            <td style="padding: 6px;"><span style="background: rgba(16,185,129,0.15); color: #10b981; padding: 3px 8px; border-radius: 4px;">85%</span></td>
+            <td style="padding: 6px;"><span style="background: rgba(239,68,68,0.15); color: #ef4444; padding: 3px 8px; border-radius: 4px;">—</span></td>
+          </tr>
+          <tr style="border-top: 1px solid #222;">
+            <td style="padding: 8px 12px; text-align: left; color: #ccc;">3-testing</td>
+            <td style="padding: 6px;"><span style="background: rgba(16,185,129,0.15); color: #10b981; padding: 3px 8px; border-radius: 4px;">88%</span></td>
+            <td style="padding: 6px;"><span style="background: rgba(250,204,21,0.15); color: #facc15; padding: 3px 8px; border-radius: 4px;">75%</span></td>
+            <td style="padding: 6px;"><span style="background: rgba(16,185,129,0.25); color: #10b981; padding: 3px 8px; border-radius: 4px; font-weight: bold;">90%</span></td>
+            <td style="padding: 6px;"><span style="background: rgba(250,204,21,0.15); color: #facc15; padding: 3px 8px; border-radius: 4px;">70%</span></td>
+          </tr>
+          <tr style="border-top: 1px solid #333; background: rgba(255,255,255,0.03);">
+            <td style="padding: 8px 12px; text-align: left; color: #ccc; font-weight: bold;">TOTAL</td>
+            <td style="padding: 6px; font-weight: bold; color: #10b981;">91.2%</td>
+            <td style="padding: 6px; font-weight: bold; color: #10b981;">87.5%</td>
+            <td style="padding: 6px; font-weight: bold; color: #facc15;">79.8%</td>
+            <td style="padding: 6px; font-weight: bold; color: #facc15;">72.1%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top: 8px; color: #666; font-size: 10px;">Best in row shown in <span style="font-weight: bold;">bold</span> &middot; — = no data &middot; Click any cell to drill down</div>
+  </div>
+</div>

@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Litmus — Kimi-K2.5 — 20260325_140531</title>
+<style>
+/* ── Base ── */
+:root {
+  --bg: #ffffff;
+  --surface: #f8f9fa;
+  --surface-alt: #f1f3f5;
+  --border: #dee2e6;
+  --text: #212529;
+  --text-secondary: #495057;
+  --muted: #868e96;
+  --ok: #2b8a3e;
+  --ok-bg: #ebfbee;
+  --warn: #e67700;
+  --warn-bg: #fff9db;
+  --fail: #c92a2a;
+  --fail-bg: #fff5f5;
+  --accent: #1864ab;
+  --accent-bg: #e7f5ff;
+}
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: var(--bg); color: var(--text);
+  margin: 0; padding: 2rem 2.5rem; line-height: 1.5;
+  font-size: 0.875rem;
+}
+h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 0.25rem; }
+h2 {
+  font-size: 1.15rem; font-weight: 600; margin: 2.5rem 0 1rem;
+  padding-bottom: 0.4rem; border-bottom: 2px solid var(--border);
+}
+h3 { font-size: 1rem; font-weight: 600; margin: 1.5rem 0 0.75rem; }
+p { margin: 0.5rem 0; }
+a { color: var(--accent); text-decoration: none; }
+
+/* ── Meta ── */
+.meta { color: var(--muted); font-size: 0.8rem; margin-bottom: 2rem; }
+.meta span { margin-right: 1.5rem; }
+
+/* ── KPI Cards ── */
+.kpi-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;
+  margin: 1.5rem 0 2rem;
+}
+.kpi-card {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 1rem 1.25rem;
+}
+.kpi-label {
+  font-size: 0.75rem; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.25rem;
+}
+.kpi-value { font-size: 1.75rem; font-weight: 700; }
+.kpi-sub { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.15rem; }
+
+/* ── Tables ── */
+.table-wrap { overflow-x: auto; margin: 1rem 0; }
+table { border-collapse: collapse; width: 100%; }
+th, td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
+th {
+  background: var(--surface-alt); color: var(--text-secondary);
+  font-weight: 600; text-transform: uppercase; font-size: 0.7rem;
+  letter-spacing: 0.04em; white-space: nowrap;
+}
+td { font-size: 0.85rem; }
+td:first-child { font-weight: 500; white-space: nowrap; }
+tr.highlight { background: var(--accent-bg); }
+
+/* ── Badges ── */
+.badge {
+  display: inline-block; padding: 0.15em 0.5em; border-radius: 3px;
+  font-size: 0.75rem; font-weight: 600;
+}
+.badge.ok { background: var(--ok-bg); color: var(--ok); }
+.badge.warn { background: var(--warn-bg); color: var(--warn); }
+.badge.fail { background: var(--fail-bg); color: var(--fail); }
+
+/* ── Scenario Status Dots ── */
+.scenario-dots { display: flex; gap: 0.3rem; align-items: center; }
+.dot {
+  width: 0.65rem; height: 0.65rem; border-radius: 2px;
+}
+.dot.ok { background: var(--ok); }
+.dot.warn { background: var(--warn); }
+.dot.fail { background: var(--fail); }
+
+/* ── Heatmap ── */
+.heatmap td { text-align: center; min-width: 2.5rem; font-weight: 600; font-size: 0.8rem; }
+.heatmap th.rotate { writing-mode: vertical-lr; text-orientation: mixed; white-space: nowrap; height: 7rem; vertical-align: bottom; padding: 0.4rem 0.25rem; font-size: 0.65rem; }
+.s-9  { background: #ebfbee; color: var(--ok); }
+.s-7  { background: #d3f9d8; color: var(--ok); }
+.s-5  { background: #fff9db; color: var(--warn); }
+.s-3  { background: #ffe8cc; color: var(--warn); }
+.s-1  { background: #fff5f5; color: var(--fail); }
+
+/* ── Bars ── */
+.bar-container { display: flex; align-items: center; gap: 0.5rem; margin: 0.35rem 0; }
+.bar-label { width: 11rem; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+.bar-track { flex: 1; height: 1.25rem; background: var(--surface); border-radius: 3px; overflow: hidden; position: relative; }
+.bar-fill { height: 100%; border-radius: 3px; min-width: 1.5rem; display: flex; align-items: center; justify-content: flex-end; padding: 0 0.4rem; font-size: 0.7rem; font-weight: 600; color: #fff; }
+.bar-fill.ok { background: var(--ok); }
+.bar-fill.warn { background: var(--warn); }
+.bar-fill.fail { background: var(--fail); }
+.bar-time { font-size: 0.75rem; color: var(--muted); width: 3.5rem; text-align: right; flex-shrink: 0; }
+
+/* ── Details / Expandable Sections ── */
+details { border: 1px solid var(--border); border-radius: 6px; margin: 0.75rem 0; }
+summary { padding: 0.75rem 1rem; cursor: pointer; font-weight: 500; }
+summary:hover { background: var(--surface); }
+details[open] summary { border-bottom: 1px solid var(--border); }
+details > div { padding: 1rem; }
+.criteria-list { margin: 0.5rem 0; padding: 0; list-style: none; }
+.criteria-list li { padding: 0.25rem 0; font-size: 0.85rem; }
+.criteria-list li::before { margin-right: 0.4rem; }
+.criteria-list li.met::before { content: "\2713"; color: var(--ok); font-weight: 700; }
+.criteria-list li.not-met::before { content: "\2717"; color: var(--fail); font-weight: 700; }
+
+/* ── Steps Table ── */
+.steps-table td { font-size: 0.8rem; }
+.steps-table .step-done { color: var(--ok); }
+.steps-table .step-failed { color: var(--fail); }
+
+/* ── Screenshots ── */
+.screenshots { margin: 1.5rem 0; }
+.screenshot-block { margin-bottom: 1.5rem; }
+.screenshot-block img { max-width: 100%; border: 1px solid var(--border); border-radius: 4px; }
+.screenshot-block figcaption { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.35rem; }
+
+/* ── Summary Box ── */
+.summary-box {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; padding: 1.25rem 1.5rem; margin: 1.5rem 0;
+}
+.summary-box ul { margin: 0.5rem 0; padding-left: 1.25rem; }
+.summary-box li { margin-bottom: 0.35rem; }
+
+/* ── Timing highlight ── */
+.fastest { background: var(--ok-bg); }
+.slowest { background: var(--fail-bg); }
+
+/* ── Print / PDF ── */
+@media print {
+  body { padding: 0; font-size: 9pt; }
+  @page { size: A4 landscape; margin: 1.5cm; }
+  h2 { page-break-before: auto; page-break-after: avoid; }
+  table, .kpi-grid { page-break-inside: avoid; }
+  details { page-break-inside: avoid; }
+  details[open] { break-inside: auto; }
+  details > summary { display: none; }
+  details > div, details > table { display: block !important; }
+  .heatmap td, .badge, .bar-fill, .kpi-value, .dot {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .screenshot-block img { max-height: 14cm; }
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- 1. HEADER                                               -->
+<!-- ════════════════════════════════════════════════════════ -->
+<h1>Litmus Benchmark — Kimi-K2.5</h1>
+<div class="meta">
+  <span>Модель: testing/moonshotai/Kimi-K2.5</span>
+  <span>Run: 20260325_140531</span>
+  <span>Дата прогона: 2026-03-25</span>
+  <span>Агенты: KiloCode, OpenCode</span>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- 2. KPI CARDS                                            -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-label">Task Score</div>
+    <div class="kpi-value">80/80</div>
+    <div class="kpi-sub">100% — все критерии пройдены</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Pass Rate</div>
+    <div class="kpi-value">100%</div>
+    <div class="kpi-sub">16/16 сценариев (OK + Warn)</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Среднее время</div>
+    <div class="kpi-value">23.5s</div>
+    <div class="kpi-sub">на сценарий (оба агента)</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Средний балл модели</div>
+    <div class="kpi-value">6.5</div>
+    <div class="kpi-sub">из 10 по 20 критериям</div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- 3. SUMMARY TABLE                                        -->
+<!-- ════════════════════════════════════════════════════════ -->
+<h2>Сводная таблица результатов</h2>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr>
+      <th>Агент</th>
+      <th>Сценарии</th>
+      <th>1-DS</th><th>2-Arch</th><th>3-Debug</th><th>4-Spec</th>
+      <th>5-Hall</th><th>6-Tool</th><th>7-Arch-D</th><th>8-Long</th>
+      <th>Score</th><th>Время</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>KiloCode</td>
+      <td>
+        <div class="scenario-dots">
+          <div class="dot warn" title="Warn"></div>
+          <div class="dot warn" title="Warn"></div>
+          <div class="dot ok" title="OK"></div>
+          <div class="dot ok" title="OK"></div>
+          <div class="dot ok" title="OK"></div>
+          <div class="dot ok" title="OK"></div>
+          <div class="dot ok" title="OK"></div>
+          <div class="dot ok" title="OK"></div>
+        </div>
+      </td>
+      <td><span class="badge warn">Warn</span><br><small>43.5s</small></td>
+      <td><span class="badge warn">Warn</span><br><small>88.9s</small></td>
+      <td><span class="badge ok">OK</span><br><small>18.5s</small></td>
+      <td><span class="badge ok">OK</span><br><small>16.8s</small></td>
+      <td><span class="badge ok">OK</span><br><small>11.3s</small></td>
+      <td><span class="badge ok">OK</span><br><small>13.9s</small></td>
+      <td><span class="badge ok">OK</span><br><small>14.9s</small></td>
+      <td><span class="badge ok">OK</span><br><small>8.3s</small></td>
+      <td style="font-weight:700; color:var(--ok)">8/8</td>
+      <td>3 мин 36 сек</td>
+    </tr>
+    <tr>
+      <td>OpenCode</td>
+      <td>
+        <div class="scenario-dots">
+          <div class="dot ok" title="OK"></div>
+          <div class="dot warn" title="Warn"></div>
+          <div class="dot ok" title="OK"></div>
+          <div class="dot warn" title="Warn"></div>
+          <div class="dot ok" title="OK"></div>
+          <div class="dot ok" title="OK"></div>
+          <div class="dot ok" title="OK"></div>
+          <div class="dot ok" title="OK"></div>
+        </div>
+      </td>
+      <td><span class="badge ok">OK</span><br><small>11.1s</small></td>
+      <td><span class="badge warn">Warn</span><br><small>47.4s</small></td>
+      <td><span class="badge ok">OK</span><br><small>18.8s</small></td>
+      <td><span class="badge warn">Warn</span><br><small>39.9s</small></td>
+      <td><span class="badge ok">OK</span><br><small>14.1s</small></td>
+      <td><span class="badge ok">OK</span><br><small>5.0s</small></td>
+      <td><span class="badge ok">OK</span><br><small>16.6s</small></td>
+      <td><span class="badge ok">OK</span><br><small>9.1s</small></td>
+      <td style="font-weight:700; color:var(--ok)">8/8</td>
+      <td>2 мин 42 сек</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+<p style="font-size:0.8rem; color:var(--muted);">
+  OK — тесты прошли с первой попытки. Warn — прошли после retry. Fail — не прошли.
+</p>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- 4. TIMING & SPEED                                       -->
+<!-- ════════════════════════════════════════════════════════ -->
+<h2>Скорость работы</h2>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr>
+      <th>Агент</th>
+      <th>1-DS</th><th>2-Arch</th><th>3-Debug</th><th>4-Spec</th>
+      <th>5-Hall</th><th>6-Tool</th><th>7-Arch-D</th><th>8-Long</th>
+      <th>Всего</th><th>Среднее</th><th>Retry</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>KiloCode</td>
+      <td>43.5s</td>
+      <td class="slowest">88.9s</td>
+      <td>18.5s</td>
+      <td>16.8s</td>
+      <td>11.3s</td>
+      <td>13.9s</td>
+      <td>14.9s</td>
+      <td class="fastest">8.3s</td>
+      <td style="font-weight:600">3:36</td>
+      <td>27.0s</td>
+      <td>3</td>
+    </tr>
+    <tr>
+      <td>OpenCode</td>
+      <td class="fastest">11.1s</td>
+      <td>47.4s</td>
+      <td>18.8s</td>
+      <td>39.9s</td>
+      <td>14.1s</td>
+      <td class="fastest">5.0s</td>
+      <td>16.6s</td>
+      <td>9.1s</td>
+      <td style="font-weight:600">2:42</td>
+      <td>20.2s</td>
+      <td>2</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+<p style="font-size:0.8rem; color:var(--muted);">
+  Зелёный фон — лучшее время в столбце. Красный — худшее. Retry — количество повторных вызовов агента.
+</p>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- 5. COMPARISON BARS BY SCENARIO                          -->
+<!-- ════════════════════════════════════════════════════════ -->
+<h2>Сравнение по сценариям</h2>
+
+<h3>1. Data Structure</h3>
+<div class="bar-container">
+  <div class="bar-label">KiloCode</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100%">10</div></div>
+  <div class="bar-time">43.5s</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">OpenCode</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100%">10</div></div>
+  <div class="bar-time">11.1s</div>
+</div>
+
+<h3>2. Simple Architecture</h3>
+<div class="bar-container">
+  <div class="bar-label">KiloCode</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100%">10</div></div>
+  <div class="bar-time">88.9s</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">OpenCode</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100%">10</div></div>
+  <div class="bar-time">47.4s</div>
+</div>
+
+<h3>3. Complex Debug</h3>
+<div class="bar-container">
+  <div class="bar-label">KiloCode</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100%">10</div></div>
+  <div class="bar-time">18.5s</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">OpenCode</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100%">10</div></div>
+  <div class="bar-time">18.8s</div>
+</div>
+
+<h3>4. Spec Compliance</h3>
+<div class="bar-container">
+  <div class="bar-label">KiloCode</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100%">10</div></div>
+  <div class="bar-time">16.8s</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">OpenCode</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100%">10</div></div>
+  <div class="bar-time">39.9s</div>
+</div>
+
+<h3>5. Hallucination</h3>
+<div class="bar-container">
+  <div class="bar-label">KiloCode</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100%">10</div></div>
+  <div class="bar-time">11.3s</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">OpenCode</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100%">10</div></div>
+  <div class="bar-time">14.1s</div>
+</div>
+
+<h3>6. Tool Calling</h3>
+<div class="bar-container">
+  <div class="bar-label">KiloCode</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100%">10</div></div>
+  <div class="bar-time">13.9s</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">OpenCode</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100%">10</div></div>
+  <div class="bar-time">5.0s</div>
+</div>
+
+<h3>7. Architecture Design</h3>
+<div class="bar-container">
+  <div class="bar-label">KiloCode</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100%">10</div></div>
+  <div class="bar-time">14.9s</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">OpenCode</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100%">10</div></div>
+  <div class="bar-time">16.6s</div>
+</div>
+
+<h3>8. Long Context</h3>
+<div class="bar-container">
+  <div class="bar-label">KiloCode</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100%">10</div></div>
+  <div class="bar-time">8.3s</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">OpenCode</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100%">10</div></div>
+  <div class="bar-time">9.1s</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- 6. MODEL SCORES HEATMAP                                 -->
+<!-- ════════════════════════════════════════════════════════ -->
+<h2>Оценки модели (20 критериев)</h2>
+<div class="table-wrap">
+<table class="heatmap">
+  <thead>
+    <tr>
+      <th>Агент</th>
+      <th class="rotate">reasoning_correctness</th>
+      <th class="rotate">tool_call_formation</th>
+      <th class="rotate">code_correctness</th>
+      <th class="rotate">instruction_following</th>
+      <th class="rotate">hallucination_resistance</th>
+      <th class="rotate">type_awareness</th>
+      <th class="rotate">error_diagnosis</th>
+      <th class="rotate">solution_completeness</th>
+      <th class="rotate">code_style_consistency</th>
+      <th class="rotate">api_knowledge_accuracy</th>
+      <th class="rotate">edge_case_handling</th>
+      <th class="rotate">architecture_understanding</th>
+      <th class="rotate">import_correctness</th>
+      <th class="rotate">test_understanding</th>
+      <th class="rotate">debugging_strategy</th>
+      <th class="rotate">natural_language_clarity</th>
+      <th class="rotate">self_correction_ability</th>
+      <th class="rotate">context_window_usage</th>
+      <th class="rotate">output_structure</th>
+      <th class="rotate">domain_knowledge</th>
+      <th class="rotate" style="font-weight:700">AVG</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>KiloCode</td>
+      <td class="s-5">6</td><td class="s-7">7</td><td class="s-7">8</td><td class="s-5">6</td>
+      <td class="s-7">7</td><td class="s-7">7</td><td class="s-5">6</td><td class="s-7">8</td>
+      <td class="s-5">6</td><td class="s-5">6</td><td class="s-7">7</td><td class="s-7">8</td>
+      <td class="s-5">5</td><td class="s-5">6</td><td class="s-5">6</td><td class="s-5">6</td>
+      <td class="s-7">7</td><td class="s-5">6</td><td class="s-5">6</td><td class="s-7">7</td>
+      <td class="s-5" style="font-weight:700">6.6</td>
+    </tr>
+    <tr>
+      <td>OpenCode</td>
+      <td class="s-5">5</td><td class="s-7">8</td><td class="s-7">7</td><td class="s-5">6</td>
+      <td class="s-7">7</td><td class="s-7">7</td><td class="s-5">6</td><td class="s-7">7</td>
+      <td class="s-5">6</td><td class="s-5">5</td><td class="s-5">6</td><td class="s-7">7</td>
+      <td class="s-3">4</td><td class="s-7">7</td><td class="s-5">6</td><td class="s-7">7</td>
+      <td class="s-7">7</td><td class="s-5">6</td><td class="s-7">7</td><td class="s-7">7</td>
+      <td class="s-5" style="font-weight:700">6.4</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- 7. AGENT SCORES HEATMAP                                 -->
+<!-- ════════════════════════════════════════════════════════ -->
+<h2>Оценки агента (20 критериев)</h2>
+<div class="table-wrap">
+<table class="heatmap">
+  <thead>
+    <tr>
+      <th>Агент</th>
+      <th class="rotate">tool_efficiency</th>
+      <th class="rotate">reasoning_verbosity</th>
+      <th class="rotate">thinking_depth</th>
+      <th class="rotate">error_recovery</th>
+      <th class="rotate">context_utilization</th>
+      <th class="rotate">file_operation_accuracy</th>
+      <th class="rotate">retry_strategy</th>
+      <th class="rotate">output_formatting</th>
+      <th class="rotate">task_decomposition</th>
+      <th class="rotate">dependency_management</th>
+      <th class="rotate">test_awareness</th>
+      <th class="rotate">code_generation_quality</th>
+      <th class="rotate">prompt_interpretation</th>
+      <th class="rotate">execution_speed</th>
+      <th class="rotate">side_effect_awareness</th>
+      <th class="rotate">idempotency</th>
+      <th class="rotate">progress_communication</th>
+      <th class="rotate">resource_efficiency</th>
+      <th class="rotate">graceful_degradation</th>
+      <th class="rotate">final_state_correctness</th>
+      <th class="rotate" style="font-weight:700">AVG</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>KiloCode</td>
+      <td class="s-5">6</td><td class="s-3">3</td><td class="s-5">6</td><td class="s-3">4</td>
+      <td class="s-5">5</td><td class="s-5">6</td><td class="s-5">6</td><td class="s-5">5</td>
+      <td class="s-5">6</td><td class="s-5">6</td><td class="s-5">6</td><td class="s-7">7</td>
+      <td class="s-5">5</td><td class="s-7">7</td><td class="s-5">6</td><td class="s-7">7</td>
+      <td class="s-5">6</td><td class="s-5">6</td><td class="s-3">4</td><td class="s-7">7</td>
+      <td class="s-5" style="font-weight:700">5.7</td>
+    </tr>
+    <tr>
+      <td>OpenCode</td>
+      <td class="s-5">6</td><td class="s-3">3</td><td class="s-5">6</td><td class="s-7">7</td>
+      <td class="s-5">5</td><td class="s-3">4</td><td class="s-5">6</td><td class="s-7">7</td>
+      <td class="s-5">6</td><td class="s-5">5</td><td class="s-7">7</td><td class="s-5">6</td>
+      <td class="s-5">6</td><td class="s-7">7</td><td class="s-5">6</td><td class="s-5">6</td>
+      <td class="s-7">7</td><td class="s-5">5</td><td class="s-5">5</td><td class="s-7">7</td>
+      <td class="s-5" style="font-weight:700">5.9</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- 8. SCENARIO DETAILS                                     -->
+<!-- ════════════════════════════════════════════════════════ -->
+<h2>Детали по ключевым сценариям</h2>
+
+<!-- Scenario 1 -->
+<details>
+  <summary>1. Data Structure — TimeBasedKeyValueStore</summary>
+  <div>
+    <p>Реализация структуры данных с поддержкой get по ближайшему timestamp. Требуется O(log n) поиск через bisect.</p>
+
+    <h3>KiloCode — 43.5s, 5 шагов, 1 retry</h3>
+    <table class="steps-table">
+      <thead><tr><th>Шаг</th><th>Статус</th><th>Время</th></tr></thead>
+      <tbody>
+        <tr><td>Project init (uv sync)</td><td class="step-done">done</td><td>0.2s</td></tr>
+        <tr><td>Agent call</td><td class="step-done">done</td><td>17.0s</td></tr>
+        <tr><td>Run tests</td><td class="step-failed">failed</td><td>1.8s</td></tr>
+        <tr><td>Agent retry #1</td><td class="step-done">done</td><td>24.2s</td></tr>
+        <tr><td>Run tests #2</td><td class="step-done">done</td><td>0.3s</td></tr>
+      </tbody>
+    </table>
+
+    <h3>OpenCode — 11.1s, 3 шага, 0 retry</h3>
+    <table class="steps-table">
+      <thead><tr><th>Шаг</th><th>Статус</th><th>Время</th></tr></thead>
+      <tbody>
+        <tr><td>Project init (uv sync)</td><td class="step-done">done</td><td>0.2s</td></tr>
+        <tr><td>Agent call</td><td class="step-done">done</td><td>9.0s</td></tr>
+        <tr><td>Run tests</td><td class="step-done">done</td><td>1.9s</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Критерии приёмки</h3>
+    <ul class="criteria-list">
+      <li class="met">Type hints в сигнатурах</li>
+      <li class="met">Корректная логика get (max timestamp &le; t)</li>
+      <li class="met">Пустая строка при отсутствии ключа</li>
+      <li class="met">Подходящая структура данных (O(log n))</li>
+      <li class="met">Все автотесты проходят (3 теста)</li>
+    </ul>
+  </div>
+</details>
+
+<!-- Scenario 2 -->
+<details>
+  <summary>2. Simple Architecture — FastAPI REST API</summary>
+  <div>
+    <p>REST API для сущности Order: POST/GET endpoints, Pydantic валидация, обработка 404 и extra fields.</p>
+
+    <h3>KiloCode — 88.9s, 7 шагов, 2 retry</h3>
+    <table class="steps-table">
+      <thead><tr><th>Шаг</th><th>Статус</th><th>Время</th></tr></thead>
+      <tbody>
+        <tr><td>Project init (uv sync)</td><td class="step-done">done</td><td>0.2s</td></tr>
+        <tr><td>Agent call</td><td class="step-done">done</td><td>15.4s</td></tr>
+        <tr><td>Run tests</td><td class="step-failed">failed</td><td>2.3s</td></tr>
+        <tr><td>Agent retry #1</td><td class="step-done">done</td><td>42.5s</td></tr>
+        <tr><td>Run tests #2</td><td class="step-failed">failed</td><td>0.7s</td></tr>
+        <tr><td>Agent retry #2</td><td class="step-done">done</td><td>27.2s</td></tr>
+        <tr><td>Run tests #3</td><td class="step-done">done</td><td>0.6s</td></tr>
+      </tbody>
+    </table>
+
+    <h3>OpenCode — 47.4s, 5 шагов, 1 retry</h3>
+    <table class="steps-table">
+      <thead><tr><th>Шаг</th><th>Статус</th><th>Время</th></tr></thead>
+      <tbody>
+        <tr><td>Project init (uv sync)</td><td class="step-done">done</td><td>0.3s</td></tr>
+        <tr><td>Agent call</td><td class="step-done">done</td><td>14.7s</td></tr>
+        <tr><td>Run tests</td><td class="step-failed">failed</td><td>2.4s</td></tr>
+        <tr><td>Agent retry #1</td><td class="step-done">done</td><td>29.1s</td></tr>
+        <tr><td>Run tests #2</td><td class="step-done">done</td><td>0.9s</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Критерии приёмки</h3>
+    <ul class="criteria-list">
+      <li class="met">FastAPI app создан</li>
+      <li class="met">Pydantic BaseModel для Order</li>
+      <li class="met">POST /orders создаёт заказ</li>
+      <li class="met">GET /orders/{id} возвращает заказ</li>
+      <li class="met">GET для несуществующего id &rarr; 404</li>
+      <li class="met">Валидация (422 при неверных данных)</li>
+      <li class="met">Все 4 автотеста проходят</li>
+    </ul>
+  </div>
+</details>
+
+<!-- Scenario 3 -->
+<details>
+  <summary>3. Complex Debug — Thread Safety</summary>
+  <div>
+    <p>Исправление бага потокобезопасности в Counter. Ожидаемый результат run_threads() == 1000.</p>
+
+    <h3>KiloCode — 18.5s, 3 шага, 0 retry</h3>
+    <table class="steps-table">
+      <thead><tr><th>Шаг</th><th>Статус</th><th>Время</th></tr></thead>
+      <tbody>
+        <tr><td>Project init (uv sync)</td><td class="step-done">done</td><td>0.2s</td></tr>
+        <tr><td>Agent call</td><td class="step-done">done</td><td>16.2s</td></tr>
+        <tr><td>Run tests</td><td class="step-done">done</td><td>2.1s</td></tr>
+      </tbody>
+    </table>
+
+    <h3>OpenCode — 18.8s, 3 шага, 0 retry</h3>
+    <table class="steps-table">
+      <thead><tr><th>Шаг</th><th>Статус</th><th>Время</th></tr></thead>
+      <tbody>
+        <tr><td>Project init (uv sync)</td><td class="step-done">done</td><td>0.2s</td></tr>
+        <tr><td>Agent call</td><td class="step-done">done</td><td>17.1s</td></tr>
+        <tr><td>Run tests</td><td class="step-done">done</td><td>1.5s</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Критерии приёмки</h3>
+    <ul class="criteria-list">
+      <li class="met">Тест проходит (run_threads() == 1000)</li>
+      <li class="met">Публичный интерфейс сохранён</li>
+      <li class="met">Без глобальных переменных</li>
+      <li class="met">Корректная синхронизация (threading.Lock)</li>
+    </ul>
+  </div>
+</details>
+
+<!-- Scenario 4 -->
+<details>
+  <summary>4. Spec Compliance — Frozen Dataclass</summary>
+  <div>
+    <p>Точная реализация по спецификации: frozen dataclass, формула расчёта с discount/tax, edge cases.</p>
+
+    <h3>KiloCode — 16.8s, 3 шага, 0 retry</h3>
+    <table class="steps-table">
+      <thead><tr><th>Шаг</th><th>Статус</th><th>Время</th></tr></thead>
+      <tbody>
+        <tr><td>Project init (uv sync)</td><td class="step-done">done</td><td>0.1s</td></tr>
+        <tr><td>Agent call</td><td class="step-done">done</td><td>15.1s</td></tr>
+        <tr><td>Run tests</td><td class="step-done">done</td><td>1.6s</td></tr>
+      </tbody>
+    </table>
+
+    <h3>OpenCode — 39.9s, 5 шагов, 1 retry</h3>
+    <table class="steps-table">
+      <thead><tr><th>Шаг</th><th>Статус</th><th>Время</th></tr></thead>
+      <tbody>
+        <tr><td>Project init (uv sync)</td><td class="step-done">done</td><td>0.2s</td></tr>
+        <tr><td>Agent call</td><td class="step-done">done</td><td>16.5s</td></tr>
+        <tr><td>Run tests</td><td class="step-failed">failed</td><td>1.4s</td></tr>
+        <tr><td>Agent retry #1</td><td class="step-done">done</td><td>21.5s</td></tr>
+        <tr><td>Run tests #2</td><td class="step-done">done</td><td>0.3s</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Критерии приёмки</h3>
+    <ul class="criteria-list">
+      <li class="met">frozen=True</li>
+      <li class="met">tuple используется для items</li>
+      <li class="met">Корректная формула (items &rarr; discount &rarr; tax)</li>
+      <li class="met">Округление до 2 знаков</li>
+      <li class="met">Проверка empty items</li>
+      <li class="met">Проверка negative (items/tax/discount)</li>
+      <li class="met">discount &le; 100</li>
+      <li class="met">Docstring</li>
+      <li class="met">Type hints</li>
+      <li class="met">Все 11 автотестов проходят</li>
+    </ul>
+  </div>
+</details>
+
+<!-- Scenario 5 -->
+<details>
+  <summary>5. Hallucination — matplotlib vs mathplotlib</summary>
+  <div>
+    <p>Промпт содержит намеренную опечатку «mathplotlib». Модель должна использовать правильное имя библиотеки и не выдумывать API.</p>
+
+    <h3>KiloCode — 11.3s, 1 шаг, 0 retry</h3>
+    <h3>OpenCode — 14.1s, 1 шаг, 0 retry</h3>
+
+    <h3>Критерии приёмки</h3>
+    <ul class="criteria-list">
+      <li class="met">Использует правильное имя (matplotlib)</li>
+      <li class="met">Код выполняемый</li>
+      <li class="met">Нет выдуманных API</li>
+    </ul>
+  </div>
+</details>
+
+<!-- Scenario 6 -->
+<details>
+  <summary>6. Tool Calling — JSON tool-calls</summary>
+  <div>
+    <p>Создание файла report.txt через инструментальные вызовы. Ответ должен быть строго в формате JSON tool-calls.</p>
+
+    <h3>KiloCode — 13.9s, 1 шаг, 0 retry</h3>
+    <h3>OpenCode — 5.0s, 1 шаг, 0 retry</h3>
+
+    <h3>Критерии приёмки</h3>
+    <ul class="criteria-list">
+      <li class="met">Файл report.txt создан</li>
+      <li class="met">Содержание: Start, Processing, Done</li>
+      <li class="met">Ответ — только JSON tool-calls</li>
+      <li class="met">Корректный формат вызова</li>
+    </ul>
+  </div>
+</details>
+
+<!-- Scenario 7 -->
+<details>
+  <summary>7. Architecture Design — Cache 100k RPS</summary>
+  <div>
+    <p>Проектирование системы кэширования для high-load API. Только текстовый ответ, без кода.</p>
+
+    <h3>KiloCode — 14.9s, 1 шаг, 0 retry</h3>
+    <h3>OpenCode — 16.6s, 1 шаг, 0 retry</h3>
+
+    <h3>Критерии приёмки</h3>
+    <ul class="criteria-list">
+      <li class="met">Расположение кэша (CDN / edge / Redis)</li>
+      <li class="met">Стратегия eviction (LRU / LFU)</li>
+      <li class="met">TTL (dynamic tiers)</li>
+      <li class="met">Инвалидация (event-driven)</li>
+      <li class="met">Отказоустойчивость (circuit breaker, fallback)</li>
+    </ul>
+  </div>
+</details>
+
+<!-- Scenario 8 -->
+<details>
+  <summary>8. Long Context — поиск токена</summary>
+  <div>
+    <p>Найти значение API_TOKEN в длинном файле main.py. Проверяет работу с длинным контекстом.</p>
+
+    <h3>KiloCode — 8.3s, 1 шаг, 0 retry</h3>
+    <h3>OpenCode — 9.1s, 1 шаг, 0 retry</h3>
+
+    <h3>Критерии приёмки</h3>
+    <ul class="criteria-list">
+      <li class="met">Найден правильный токен (HIDDEN_TOKEN_KEY / SECRET_TOKEN_12345)</li>
+      <li class="met">Ответ основан на анализе файла</li>
+    </ul>
+  </div>
+</details>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- 9. INFERENCE METRICS (SCREENSHOTS)                      -->
+<!-- ════════════════════════════════════════════════════════ -->
+<h2>Метрики инференса (vLLM)</h2>
+<p style="font-size:0.85rem; color:var(--text-secondary);">
+  Дашборд Grafana с метриками vLLM-сервера во время прогона. Характеризуют инфраструктуру, а не модель.
+  Ключевые наблюдения: Finish Reason = length (модель упирается в max_tokens), TTFT P99 ~2s, 0 ошибок 5xx.
+</p>
+
+<div class="screenshots">
+  <figure class="screenshot-block">
+    <img src="../results/docs/photo_2026-03-25_14-14-54.jpg" alt="Token Throughput, TTFT, E2E Latency, Scheduler State">
+    <figcaption>
+      Token Throughput ~300-400 tok/s. Time To First Token: P99 ~2s, P50 ~500ms.
+      E2E Request Latency: P99 до 30s на длинных генерациях.
+      Scheduler: до 8 параллельных запросов, очередь ожидания пустая.
+    </figcaption>
+  </figure>
+
+  <figure class="screenshot-block">
+    <img src="../results/docs/photo_2026-03-25_14-15-05.jpg" alt="Finish Reason, Success Rate, Prompt Length, Cache">
+    <figcaption>
+      Finish Reason: преобладает «length» — модель часто упирается в лимит max_tokens, что подтверждает
+      низкую оценку reasoning_verbosity (3/10).
+      Success Rate: ~200 req/min без ошибок. GPU Cache Usage стабильный.
+    </figcaption>
+  </figure>
+
+  <figure class="screenshot-block">
+    <img src="../results/docs/photo_2026-03-25_14-15-16.jpg" alt="Request Generation Length">
+    <figcaption>
+      Request Generation Length: основной кластер 200-5000 токенов. Видны outlier-ы до 20000 токенов —
+      это архитектурные задачи (7-architecture-design) и retry-циклы (2-simple-architecture).
+    </figcaption>
+  </figure>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- 10. CONCLUSIONS                                         -->
+<!-- ════════════════════════════════════════════════════════ -->
+<h2>Выводы</h2>
+<div class="summary-box">
+  <ul>
+    <li><strong>100% pass rate:</strong> Kimi-K2.5 прошла все 8 сценариев с обоими агентами (KiloCode и OpenCode).
+      Все 80 из 80 баллов по критериям приёмки получены. Это сильный результат для бесплатной модели.</li>
+    <li><strong>Самокоррекция:</strong> модель уверенно исправляет ошибки после провала тестов (self_correction 7/10).
+      Типичный паттерн: неверный status code или формула &rarr; чтение assert-сообщения &rarr; точечное исправление.</li>
+    <li><strong>Слабые стороны:</strong> избыточная многословность (verbosity 3/10), ошибки в первых попытках
+      на API-задачах (status code 201 vs 200, extra field handling), слабая работа с импортами (4-5/10).</li>
+    <li><strong>OpenCode быстрее на 33%</strong> (2:42 vs 3:36), но KiloCode чаще решает с первой попытки
+      (75% vs 62.5%). Для задач, где retry дорогой, KiloCode предпочтительнее.</li>
+    <li><strong>Инференс стабилен:</strong> 0 ошибок, TTFT P50 ~500ms. Finish Reason «length» указывает,
+      что max_tokens стоит увеличить для снижения числа retry.</li>
+  </ul>
+</div>
+
+</body>
+</html>

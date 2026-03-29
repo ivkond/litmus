@@ -1,7 +1,9 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::error::{LitmusError, Result};
 use crate::model::{Scenario, ScoringCriterion};
+
+// ── Read ──
 
 /// Load all scenarios from a template directory.
 /// Each subdirectory containing prompt.txt is treated as a scenario.
@@ -47,6 +49,61 @@ pub fn load_scenarios(template_dir: &Path) -> Result<Vec<Scenario>> {
     Ok(scenarios)
 }
 
+// ── Create ──
+
+/// Create a new empty scenario with a default prompt.
+pub fn create_scenario(template_dir: &Path, id: &str) -> Result<PathBuf> {
+    let dir = template_dir.join(id);
+    if dir.exists() {
+        return Err(LitmusError::Scenario(format!(
+            "scenario '{}' already exists",
+            id
+        )));
+    }
+    std::fs::create_dir_all(&dir)?;
+    std::fs::write(dir.join("prompt.txt"), "# Write the prompt here\n")?;
+    Ok(dir)
+}
+
+// ── Delete ──
+
+/// Remove a scenario directory entirely.
+pub fn delete_scenario(template_dir: &Path, id: &str) -> Result<()> {
+    let dir = template_dir.join(id);
+    if !dir.exists() {
+        return Err(LitmusError::Scenario(format!(
+            "scenario '{}' not found",
+            id
+        )));
+    }
+    std::fs::remove_dir_all(&dir)?;
+    Ok(())
+}
+
+// ── Duplicate ──
+
+/// Duplicate a scenario under a new ID by copying the entire directory.
+pub fn duplicate_scenario(template_dir: &Path, source_id: &str, new_id: &str) -> Result<PathBuf> {
+    let src = template_dir.join(source_id);
+    let dst = template_dir.join(new_id);
+    if !src.exists() {
+        return Err(LitmusError::Scenario(format!(
+            "scenario '{}' not found",
+            source_id
+        )));
+    }
+    if dst.exists() {
+        return Err(LitmusError::Scenario(format!(
+            "scenario '{}' already exists",
+            new_id
+        )));
+    }
+    copy_dir_recursive(&src, &dst)?;
+    Ok(dst)
+}
+
+// ── Internal helpers ──
+
 fn read_optional_file(path: &Path) -> Result<String> {
     if path.exists() {
         Ok(std::fs::read_to_string(path)?)
@@ -74,4 +131,98 @@ fn load_scoring(path: &Path) -> Result<Vec<ScoringCriterion>> {
         criteria.push(ScoringCriterion { criterion, score });
     }
     Ok(criteria)
+}
+
+/// Recursively copy a directory, skipping caches.
+fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let name = entry.file_name().to_string_lossy().to_string();
+        if should_skip(&name) {
+            continue;
+        }
+        let src_path = entry.path();
+        let dst_path = dst.join(&name);
+        if src_path.is_dir() {
+            copy_dir_recursive(&src_path, &dst_path)?;
+        } else {
+            std::fs::copy(&src_path, &dst_path)?;
+        }
+    }
+    Ok(())
+}
+
+/// Files/dirs to skip during copy and pack operations.
+pub fn should_skip(name: &str) -> bool {
+    name == "__pycache__"
+        || name == ".pytest_cache"
+        || name == ".venv"
+        || name == "node_modules"
+        || name.ends_with(".pyc")
+        || name.ends_with(".pyo")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    fn setup_template() -> TempDir {
+        let tmp = TempDir::new().unwrap();
+        let s1 = tmp.path().join("1-basic");
+        std::fs::create_dir_all(s1.join("project")).unwrap();
+        std::fs::write(s1.join("prompt.txt"), "Do the thing").unwrap();
+        std::fs::write(s1.join("task.txt"), "Task description").unwrap();
+        std::fs::write(
+            s1.join("scoring.csv"),
+            "criterion,score\nCorrectness,5\nStyle,2\n",
+        )
+        .unwrap();
+        std::fs::write(s1.join("project").join("main.py"), "# code").unwrap();
+        std::fs::write(s1.join("project").join("test.py"), "# tests").unwrap();
+        tmp
+    }
+
+    #[test]
+    fn test_load_scenarios() {
+        let tmp = setup_template();
+        let scenarios = load_scenarios(tmp.path()).unwrap();
+        assert_eq!(scenarios.len(), 1);
+        assert_eq!(scenarios[0].id, "1-basic");
+        assert_eq!(scenarios[0].prompt, "Do the thing");
+        assert_eq!(scenarios[0].scoring.len(), 2);
+        assert_eq!(scenarios[0].max_score, 7);
+        assert!(scenarios[0].has_project);
+    }
+
+    #[test]
+    fn test_create_delete() {
+        let tmp = TempDir::new().unwrap();
+        create_scenario(tmp.path(), "test-scenario").unwrap();
+        let scenarios = load_scenarios(tmp.path()).unwrap();
+        assert_eq!(scenarios.len(), 1);
+        assert_eq!(scenarios[0].id, "test-scenario");
+
+        delete_scenario(tmp.path(), "test-scenario").unwrap();
+        let scenarios = load_scenarios(tmp.path()).unwrap();
+        assert_eq!(scenarios.len(), 0);
+    }
+
+    #[test]
+    fn test_duplicate() {
+        let tmp = setup_template();
+        duplicate_scenario(tmp.path(), "1-basic", "1-basic-copy").unwrap();
+
+        let scenarios = load_scenarios(tmp.path()).unwrap();
+        assert_eq!(scenarios.len(), 2);
+        assert_eq!(scenarios[1].prompt, "Do the thing");
+        assert!(scenarios[1].has_project);
+    }
+
+    #[test]
+    fn test_create_duplicate_id_fails() {
+        let tmp = setup_template();
+        assert!(create_scenario(tmp.path(), "1-basic").is_err());
+    }
 }

@@ -30,7 +30,7 @@ pub struct Config {
 }
 
 /// A scoring criterion from scoring.csv
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScoringCriterion {
     pub criterion: String,
     pub score: u32,
@@ -45,6 +45,22 @@ pub struct Scenario {
     pub scoring: Vec<ScoringCriterion>,
     pub max_score: u32,
     pub has_project: bool,
+}
+
+/// Manifest entry for a scenario inside a .litmus-pack file.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PackManifestEntry {
+    pub stem: String,
+    pub files: Vec<String>,
+}
+
+/// Top-level manifest for a .litmus-pack file.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PackManifest {
+    pub format_version: u32,
+    pub kind: String,
+    pub exported_at: String,
+    pub scenarios: Vec<PackManifestEntry>,
 }
 
 /// A single benchmark run result (the atomic "brick")

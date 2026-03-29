@@ -19,6 +19,15 @@ pub enum LitmusError {
 
     #[error("CSV parse error: {0}")]
     Csv(#[from] csv::Error),
+
+    #[error("JSON error: {0}")]
+    Json(#[from] serde_json::Error),
+
+    #[error("ZIP error: {0}")]
+    Zip(#[from] zip::result::ZipError),
+
+    #[error("engine error: {0}")]
+    Engine(String),
 }
 
 pub type Result<T> = std::result::Result<T, LitmusError>;

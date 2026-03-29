@@ -1,0 +1,1437 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Litmus — Model Leaderboard</title>
+<style>
+:root {
+  --bg: #ffffff; --surface: #f8f9fa; --surface-alt: #f1f3f5;
+  --border: #dee2e6; --text: #212529; --text-secondary: #495057; --muted: #868e96;
+  --ok: #2b8a3e; --ok-bg: #ebfbee; --warn: #e67700; --warn-bg: #fff9db;
+  --fail: #c92a2a; --fail-bg: #fff5f5; --accent: #1864ab; --accent-bg: #e7f5ff;
+}
+*, *::before, *::after { box-sizing: border-box; }
+body { font-family: "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text);
+       margin: 0; padding: 1.5rem 1.5rem; line-height: 1.4; font-size: 0.8rem; max-width: 100%; }
+h1 { font-size: 1.35rem; font-weight: 700; margin: 0 0 0.25rem; }
+h2 { font-size: 1.05rem; font-weight: 600; margin: 2rem 0 0.75rem;
+     padding-bottom: 0.3rem; border-bottom: 2px solid var(--border); }
+h3 { font-size: 0.9rem; font-weight: 600; margin: 1.25rem 0 0.5rem; }
+.meta { color: var(--muted); font-size: 0.75rem; margin-bottom: 1.5rem; }
+.meta span { margin-right: 1.2rem; }
+
+.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin: 1rem 0 1.5rem; }
+.kpi-card { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem 1rem; }
+.kpi-label { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.2rem; }
+.kpi-value { font-size: 1.5rem; font-weight: 700; }
+.kpi-sub { font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.1rem; }
+
+.table-wrap { overflow-x: auto; margin: 0.75rem 0; }
+table { border-collapse: collapse; width: 100%; table-layout: auto; }
+th, td { padding: 0.3rem 0.4rem; text-align: left; border-bottom: 1px solid var(--border); }
+th { background: var(--surface-alt); color: var(--text-secondary); font-weight: 600;
+     text-transform: uppercase; font-size: 0.6rem; letter-spacing: 0.03em; white-space: nowrap; }
+td { font-size: 0.75rem; }
+td:first-child { font-weight: 500; white-space: nowrap; }
+tr.highlight { background: var(--accent-bg); }
+
+.badge { display: inline-block; padding: 0.1em 0.35em; border-radius: 3px; font-size: 0.65rem; font-weight: 600; }
+.badge.ok { background: var(--ok-bg); color: var(--ok); }
+.badge.warn { background: var(--warn-bg); color: var(--warn); }
+.badge.fail { background: var(--fail-bg); color: var(--fail); }
+
+.heatmap { table-layout: fixed; }
+.heatmap td { text-align: center; font-weight: 600; font-size: 0.65rem; padding: 0.2rem 0.1rem; }
+.heatmap th.rotate { writing-mode: vertical-lr; text-orientation: mixed; white-space: nowrap;
+                     height: 6.5rem; vertical-align: bottom; padding: 0.2rem 0.05rem; font-size: 0.55rem; }
+.heatmap td:first-child { width: 6.5rem; text-align: left; font-size: 0.65rem; font-weight: 500; }
+.s-9 { background: #ebfbee; color: var(--ok); }
+.s-7 { background: #d3f9d8; color: var(--ok); }
+.s-5 { background: #fff9db; color: var(--warn); }
+.s-3 { background: #ffe8cc; color: var(--warn); }
+.s-1 { background: #fff5f5; color: var(--fail); }
+
+.bar-container { display: flex; align-items: center; gap: 0.4rem; margin: 0.25rem 0; }
+.bar-label { width: 9rem; font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+.bar-track { flex: 1; height: 1.1rem; background: var(--surface); border-radius: 3px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 3px; min-width: 1.2rem; display: flex; align-items: center;
+            justify-content: flex-end; padding: 0 0.3rem; font-size: 0.6rem; font-weight: 600; color: #fff; }
+.bar-fill.ok { background: var(--ok); }
+.bar-fill.warn { background: var(--warn); }
+.bar-fill.fail { background: var(--fail); }
+.bar-val { font-size: 0.65rem; color: var(--muted); width: 3rem; text-align: right; flex-shrink: 0; }
+
+.fastest { background: var(--ok-bg); }
+.slowest { background: var(--fail-bg); }
+.rank-1 { background: var(--ok-bg); }
+
+.summary-box { background: var(--surface); border: 1px solid var(--border);
+               border-radius: 6px; padding: 1rem 1.25rem; margin: 1.25rem 0; }
+.summary-box ul { margin: 0.5rem 0; padding-left: 1.25rem; }
+.summary-box li { margin-bottom: 0.3rem; font-size: 0.8rem; }
+
+/* ── Leaderboard table ── */
+.leaderboard th, .leaderboard td { padding: 0.25rem 0.35rem; font-size: 0.7rem; }
+.leaderboard td:nth-child(2) { font-weight: 500; white-space: nowrap; }
+
+/* ── Timing table ── */
+.timing th, .timing td { padding: 0.25rem 0.35rem; text-align: center; font-size: 0.7rem; }
+.timing td:nth-child(2) { text-align: left; font-weight: 500; white-space: nowrap; }
+
+@media print {
+  body { padding: 0.5cm; font-size: 7pt; }
+  @page { size: A4 landscape; margin: 1cm; }
+  h2 { page-break-before: auto; page-break-after: avoid; }
+  table, .kpi-grid { page-break-inside: avoid; }
+  th, td { padding: 0.15rem 0.25rem; }
+  .badge { font-size: 0.55rem; padding: 0.05em 0.25em; }
+  .heatmap td { min-width: 1.2rem; font-size: 0.6rem; padding: 0.15rem 0.1rem; }
+  .heatmap th.rotate { height: 4.5rem; font-size: 0.45rem; padding: 0.2rem 0.1rem; }
+  .heatmap td:first-child { min-width: 4rem; font-size: 0.6rem; }
+  .leaderboard th, .leaderboard td { padding: 0.15rem 0.2rem; font-size: 0.6rem; }
+  .leaderboard .badge { font-size: 0.5rem; }
+  .timing th, .timing td { padding: 0.15rem 0.2rem; font-size: 0.6rem; }
+  .kpi-value { font-size: 1.1rem; }
+  .kpi-label { font-size: 0.5rem; }
+  .kpi-sub { font-size: 0.55rem; }
+  .kpi-card { padding: 0.4rem 0.6rem; }
+  .heatmap td, .badge, .bar-fill, .kpi-value, .dot { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+</style>
+</head><body>
+<h1>Litmus Benchmark — Leaderboard по моделям</h1>
+<div class="meta">
+  <span>Моделей: 13</span>
+  <span>Кейсов: 20</span>
+  <span>Сценариев: 8</span>
+  <span>Дата: 2026-03-27</span>
+</div>
+<div class="kpi-grid">
+<div class="kpi-card"><div class="kpi-label">Лучшая модель</div>
+<div class="kpi-value">Claude Opus 4.6</div>
+<div class="kpi-sub">Overall: 9.54</div></div>
+<div class="kpi-card"><div class="kpi-label">Средний Overall</div>
+<div class="kpi-value">8.63</div>
+<div class="kpi-sub">по 13 моделям</div></div>
+<div class="kpi-card"><div class="kpi-label">Средний Task Score</div>
+<div class="kpi-value">9.50</div>
+<div class="kpi-sub">из 10.0</div></div>
+<div class="kpi-card"><div class="kpi-label">Средний Model Score</div>
+<div class="kpi-value">7.32</div>
+<div class="kpi-sub">из 10.0 (13 моделей, 20 критериев)</div></div>
+</div>
+<h2>Рейтинг моделей</h2>
+<div class="table-wrap"><table class="leaderboard">
+<thead><tr>
+<th>#</th><th>Модель</th><th>Агенты</th>
+<th>1-DS</th>
+<th>2-Arch</th>
+<th>3-Debug</th>
+<th>4-Spec</th>
+<th>5-Hall</th>
+<th style="color:var(--muted)">6-Tool</th>
+<th>7-Arch-D</th>
+<th>8-Long</th>
+<th>Task</th><th>Model</th><th>Overall</th><th>Время</th>
+</tr></thead><tbody>
+<tr class="highlight">
+<td>1</td>
+<td>Claude Opus 4.6</td>
+<td style="font-size:0.6rem;color:var(--muted)">Claude Code</td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td style="opacity:0.5"><span class="badge warn">6/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td style="font-weight:700">10.00</td>
+<td style="font-weight:700">8.85</td>
+<td style="font-weight:700;color:var(--accent)">9.54</td>
+<td>7м 3с</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Composer-2</td>
+<td style="font-size:0.6rem;color:var(--muted)">Cursor Agent</td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td style="opacity:0.5"><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td style="font-weight:700">10.00</td>
+<td style="font-weight:700">8.70</td>
+<td style="font-weight:700;color:var(--accent)">9.48</td>
+<td>7м 20с</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Mimo-V2-Omni</td>
+<td style="font-size:0.6rem;color:var(--muted)">OpenCode</td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td style="opacity:0.5"><span class="badge warn">6/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td style="font-weight:700">10.00</td>
+<td style="font-weight:700">7.70</td>
+<td style="font-weight:700;color:var(--accent)">9.08</td>
+<td>11м 3с</td>
+</tr>
+<tr>
+<td>4</td>
+<td>GPT-5.3-Codex-Fast</td>
+<td style="font-size:0.6rem;color:var(--muted)">Cursor Agent</td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge warn">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td style="opacity:0.5"><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td style="font-weight:700">10.00</td>
+<td style="font-weight:700">7.40</td>
+<td style="font-weight:700;color:var(--accent)">8.96</td>
+<td>9м 37с</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Mimo-V2-Pro</td>
+<td style="font-size:0.6rem;color:var(--muted)">OpenCode</td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">9/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td style="opacity:0.5"><span class="badge warn">6/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td style="font-weight:700">9.86</td>
+<td style="font-weight:700">7.55</td>
+<td style="font-weight:700;color:var(--accent)">8.93</td>
+<td>8м 13с</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Cursor Auto</td>
+<td style="font-size:0.6rem;color:var(--muted)">Cursor Agent</td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td style="opacity:0.5"><span class="badge fail">2/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td style="font-weight:700">10.00</td>
+<td style="font-weight:700">7.25</td>
+<td style="font-weight:700;color:var(--accent)">8.90</td>
+<td>8м 18с</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Qwen 3.5</td>
+<td style="font-size:0.6rem;color:var(--muted)">KiloCode, OpenCode</td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge warn">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td style="opacity:0.5"><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td style="font-weight:700">10.00</td>
+<td style="font-weight:700">7.20</td>
+<td style="font-weight:700;color:var(--accent)">8.88</td>
+<td>3м 56с</td>
+</tr>
+<tr>
+<td>8</td>
+<td>MiniMax-M2.5</td>
+<td style="font-size:0.6rem;color:var(--muted)">OpenCode</td>
+<td><span class="badge ok">9/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">8/10</span></td>
+<td style="opacity:0.5"><span class="badge fail">2/10</span></td>
+<td><span class="badge ok">8/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td style="font-weight:700">9.29</td>
+<td style="font-weight:700">7.60</td>
+<td style="font-weight:700;color:var(--accent)">8.61</td>
+<td>10м 58с</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Kimi-K2.5</td>
+<td style="font-size:0.6rem;color:var(--muted)">KiloCode, OpenCode</td>
+<td><span class="badge warn">10/10</span></td>
+<td><span class="badge warn">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge warn">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td style="opacity:0.5"><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td style="font-weight:700">10.00</td>
+<td style="font-weight:700">6.47</td>
+<td style="font-weight:700;color:var(--accent)">8.59</td>
+<td>3м 9с</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Nemotron-3-Super-120B</td>
+<td style="font-size:0.6rem;color:var(--muted)">KiloCode</td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge warn">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge fail">5/10</span></td>
+<td style="opacity:0.5"><span class="badge fail">0/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td style="font-weight:700">9.29</td>
+<td style="font-weight:700">6.90</td>
+<td style="font-weight:700;color:var(--accent)">8.33</td>
+<td>21м 43с</td>
+</tr>
+<tr>
+<td>11</td>
+<td>GLM-4.7</td>
+<td style="font-size:0.6rem;color:var(--muted)">KiloCode, OpenCode</td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge fail">8/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td style="opacity:0.5"><span class="badge fail">2/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge fail">6.5/10</span></td>
+<td style="font-weight:700">9.21</td>
+<td style="font-weight:700">6.67</td>
+<td style="font-weight:700;color:var(--accent)">8.20</td>
+<td>3м 57с</td>
+</tr>
+<tr>
+<td>12</td>
+<td>Grok-Code-Fast-1</td>
+<td style="font-size:0.6rem;color:var(--muted)">KiloCode</td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge warn">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td style="opacity:0.5"><span class="badge fail">2/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge fail">0/10</span></td>
+<td style="font-weight:700">8.57</td>
+<td style="font-weight:700">6.90</td>
+<td style="font-weight:700;color:var(--accent)">7.90</td>
+<td>43м 47с</td>
+</tr>
+<tr>
+<td>13</td>
+<td>GPT-5.4-Medium</td>
+<td style="font-size:0.6rem;color:var(--muted)">Cursor Agent</td>
+<td><span class="badge ok">10/10</span></td>
+<td><span class="badge warn">10/10</span></td>
+<td><span class="badge ok">8/10</span></td>
+<td><span class="badge warn">10/10</span></td>
+<td><span class="badge fail">3/10</span></td>
+<td style="opacity:0.5"><span class="badge ok">8/10</span></td>
+<td><span class="badge fail">0/10</span></td>
+<td><span class="badge ok">10/10</span></td>
+<td style="font-weight:700">7.29</td>
+<td style="font-weight:700">5.95</td>
+<td style="font-weight:700;color:var(--accent)">6.75</td>
+<td>15м 51с</td>
+</tr>
+</tbody></table></div>
+<p style="font-size:0.75rem; color:var(--muted);">
+  Overall = Task Avg (7 сценариев, без 6-Tool) &times; 0.6 + Model Avg (20 критериев) &times; 0.4
+  <br>Сценарий 6 (Tool-Calling) показан, но не учитывается — тестирует фреймворк агента, а не модель.
+  <br>Qwen 3.5 добавлен по 6 прогонам (3 сессии &times; 2 агента); model-оценки рассчитаны по логам этих прогонов.
+</p>
+<h2>Task Score по сценариям</h2>
+<h3>1. Data Structure</h3>
+<div class="bar-container">
+  <div class="bar-label">Claude Opus 4.6</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">49.8с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Composer-2</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">52.5с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Mimo-V2-Omni</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">1м 28с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">GPT-5.3-Codex-Fast</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">40.4с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Mimo-V2-Pro</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">1м 13с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Cursor Auto</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">48.1с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Qwen 3.5</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">25.4с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Kimi-K2.5</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">27.3с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Nemotron-3-Super-120B</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">7м 38с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">GLM-4.7</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">19.2с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Grok-Code-Fast-1</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">24.9с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">GPT-5.4-Medium</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">1м 13с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">MiniMax-M2.5</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:90.0%">9</div></div>
+  <div class="bar-val">52.6с</div>
+</div>
+<h3>2. Simple Architecture</h3>
+<div class="bar-container">
+  <div class="bar-label">Claude Opus 4.6</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">2м 0с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Composer-2</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">2м 34с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Mimo-V2-Omni</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">5м 44с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">GPT-5.3-Codex-Fast</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">3м 50с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Mimo-V2-Pro</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">1м 58с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Cursor Auto</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">2м 54с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Qwen 3.5</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">1м 52с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">MiniMax-M2.5</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">7м 21с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Kimi-K2.5</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">1м 8с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Nemotron-3-Super-120B</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">5м 18с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Grok-Code-Fast-1</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">31м 24с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">GPT-5.4-Medium</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">6м 29с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">GLM-4.7</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:80.0%">8</div></div>
+  <div class="bar-val">2м 7с</div>
+</div>
+<h3>3. Complex Debug</h3>
+<div class="bar-container">
+  <div class="bar-label">Claude Opus 4.6</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">36.0с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Composer-2</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">1м 14с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Mimo-V2-Omni</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">1м 10с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">GPT-5.3-Codex-Fast</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">2м 40с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Mimo-V2-Pro</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">29.7с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Cursor Auto</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">2м 49с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Qwen 3.5</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">17.4с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">MiniMax-M2.5</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">28.4с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Kimi-K2.5</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">18.6с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Nemotron-3-Super-120B</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">3м 47с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">GLM-4.7</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">16.8с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Grok-Code-Fast-1</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">10м 38с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">GPT-5.4-Medium</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:80.0%">8</div></div>
+  <div class="bar-val">1м 59с</div>
+</div>
+<h3>4. Spec Compliance</h3>
+<div class="bar-container">
+  <div class="bar-label">Claude Opus 4.6</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">48.1с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Composer-2</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">1м 11с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Mimo-V2-Omni</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">1м 14с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">GPT-5.3-Codex-Fast</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">50.6с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Cursor Auto</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">21.3с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Qwen 3.5</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">18.1с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">MiniMax-M2.5</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">23.0с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Kimi-K2.5</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">28.4с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Nemotron-3-Super-120B</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">2м 11с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">GLM-4.7</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">19.8с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Grok-Code-Fast-1</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">19.5с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">GPT-5.4-Medium</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">4м 12с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Mimo-V2-Pro</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:90.0%">9</div></div>
+  <div class="bar-val">1м 50с</div>
+</div>
+<h3>5. Hallucination</h3>
+<div class="bar-container">
+  <div class="bar-label">Claude Opus 4.6</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">44.3с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Composer-2</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">21.5с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Mimo-V2-Omni</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">35.1с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">GPT-5.3-Codex-Fast</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">14.3с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Mimo-V2-Pro</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">1м 33с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Cursor Auto</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">13.5с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Qwen 3.5</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">7.8с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Kimi-K2.5</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">12.7с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">GLM-4.7</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">10.4с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Grok-Code-Fast-1</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">8.1с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">MiniMax-M2.5</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:80.0%">8</div></div>
+  <div class="bar-val">13.9с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Nemotron-3-Super-120B</div>
+  <div class="bar-track"><div class="bar-fill warn" style="width:50.0%">5</div></div>
+  <div class="bar-val">24.9с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">GPT-5.4-Medium</div>
+  <div class="bar-track"><div class="bar-fill fail" style="width:30.0%">3</div></div>
+  <div class="bar-val">37.5с</div>
+</div>
+<h3>6. Tool Calling</h3>
+<div class="bar-container">
+  <div class="bar-label">Composer-2</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">19.9с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">GPT-5.3-Codex-Fast</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">19.7с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Qwen 3.5</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">7.9с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Kimi-K2.5</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">9.4с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">GPT-5.4-Medium</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:80.0%">8</div></div>
+  <div class="bar-val">20.7с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Claude Opus 4.6</div>
+  <div class="bar-track"><div class="bar-fill warn" style="width:60.0%">6</div></div>
+  <div class="bar-val">32.4с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Mimo-V2-Omni</div>
+  <div class="bar-track"><div class="bar-fill warn" style="width:60.0%">6</div></div>
+  <div class="bar-val">15.8с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Mimo-V2-Pro</div>
+  <div class="bar-track"><div class="bar-fill warn" style="width:60.0%">6</div></div>
+  <div class="bar-val">18.5с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Cursor Auto</div>
+  <div class="bar-track"><div class="bar-fill fail" style="width:20.0%">2</div></div>
+  <div class="bar-val">13.2с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">MiniMax-M2.5</div>
+  <div class="bar-track"><div class="bar-fill fail" style="width:20.0%">2</div></div>
+  <div class="bar-val">1м 5с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">GLM-4.7</div>
+  <div class="bar-track"><div class="bar-fill fail" style="width:20.0%">2</div></div>
+  <div class="bar-val">11.1с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Grok-Code-Fast-1</div>
+  <div class="bar-track"><div class="bar-fill fail" style="width:20.0%">2</div></div>
+  <div class="bar-val">23.7с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Nemotron-3-Super-120B</div>
+  <div class="bar-track"><div class="bar-fill fail" style="width:0.0%">0</div></div>
+  <div class="bar-val">42.2с</div>
+</div>
+<h3>7. Architecture Design</h3>
+<div class="bar-container">
+  <div class="bar-label">Claude Opus 4.6</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">1м 8с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Composer-2</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">35.7с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Mimo-V2-Omni</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">19.0с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">GPT-5.3-Codex-Fast</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">36.1с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Mimo-V2-Pro</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">38.7с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Cursor Auto</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">40.0с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Qwen 3.5</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">39.0с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Kimi-K2.5</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">15.8с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Nemotron-3-Super-120B</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">34.9с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">GLM-4.7</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">20.9с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Grok-Code-Fast-1</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">15.6с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">MiniMax-M2.5</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:80.0%">8</div></div>
+  <div class="bar-val">17.6с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">GPT-5.4-Medium</div>
+  <div class="bar-track"><div class="bar-fill fail" style="width:0.0%">0</div></div>
+  <div class="bar-val">39.5с</div>
+</div>
+<h3>8. Long Context</h3>
+<div class="bar-container">
+  <div class="bar-label">Claude Opus 4.6</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">23.3с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Composer-2</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">11.7с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Mimo-V2-Omni</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">16.8с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">GPT-5.3-Codex-Fast</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">26.6с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Mimo-V2-Pro</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">12.3с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Cursor Auto</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">19.5с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Qwen 3.5</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">9.0с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">MiniMax-M2.5</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">15.8с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Kimi-K2.5</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">8.7с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Nemotron-3-Super-120B</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">1м 7с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">GPT-5.4-Medium</div>
+  <div class="bar-track"><div class="bar-fill ok" style="width:100.0%">10</div></div>
+  <div class="bar-val">20.5с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">GLM-4.7</div>
+  <div class="bar-track"><div class="bar-fill warn" style="width:65.0%">6.5</div></div>
+  <div class="bar-val">11.3с</div>
+</div>
+<div class="bar-container">
+  <div class="bar-label">Grok-Code-Fast-1</div>
+  <div class="bar-track"><div class="bar-fill fail" style="width:0.0%">0</div></div>
+  <div class="bar-val">12.3с</div>
+</div>
+<h2>Оценки моделей (20 критериев)</h2>
+<div class="table-wrap"><table class="heatmap"><thead><tr>
+<th>Модель</th>
+<th class="rotate">Reason.</th>
+<th class="rotate">Tools</th>
+<th class="rotate">Code</th>
+<th class="rotate">Instr.</th>
+<th class="rotate">Halluc.</th>
+<th class="rotate">Types</th>
+<th class="rotate">Err.Diag</th>
+<th class="rotate">Compl.</th>
+<th class="rotate">Style</th>
+<th class="rotate">API</th>
+<th class="rotate">Edge</th>
+<th class="rotate">Arch.</th>
+<th class="rotate">Import</th>
+<th class="rotate">Tests</th>
+<th class="rotate">Debug</th>
+<th class="rotate">NL</th>
+<th class="rotate">Self-fix</th>
+<th class="rotate">Ctx.Win</th>
+<th class="rotate">Output</th>
+<th class="rotate">Domain</th>
+<th class="rotate"><strong>AVG</strong></th>
+</tr></thead><tbody>
+<tr class="highlight">
+<td>#1 Claude Opus 4.6</td>
+<td class="s-9">9</td>
+<td class="s-9">9</td>
+<td class="s-9">9</td>
+<td class="s-9">9</td>
+<td class="s-9">9</td>
+<td class="s-9">9</td>
+<td class="s-9">9</td>
+<td class="s-9">9</td>
+<td class="s-9">9</td>
+<td class="s-9">9</td>
+<td class="s-7">8</td>
+<td class="s-9">9</td>
+<td class="s-9">9</td>
+<td class="s-7">8</td>
+<td class="s-9">9</td>
+<td class="s-9">9</td>
+<td class="s-7">8</td>
+<td class="s-9">9</td>
+<td class="s-9">9</td>
+<td class="s-9">9</td>
+<td class="s-9" style="font-weight:700">8.8</td>
+</tr>
+<tr>
+<td>#2 Composer-2</td>
+<td class="s-7">8</td>
+<td class="s-9">10</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-9">9</td>
+<td class="s-9">9</td>
+<td class="s-7">8</td>
+<td class="s-9">9</td>
+<td class="s-9">9</td>
+<td class="s-9">9</td>
+<td class="s-9">9</td>
+<td class="s-9">9</td>
+<td class="s-9">9</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-9">9</td>
+<td class="s-7">8</td>
+<td class="s-9">9</td>
+<td class="s-9">9</td>
+<td class="s-9">9</td>
+<td class="s-9" style="font-weight:700">8.7</td>
+</tr>
+<tr>
+<td>#3 Mimo-V2-Omni</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-7" style="font-weight:700">7.7</td>
+</tr>
+<tr>
+<td>#4 GPT-5.3-Codex-Fast</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-5">5</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7" style="font-weight:700">7.4</td>
+</tr>
+<tr>
+<td>#5 Mimo-V2-Pro</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-7" style="font-weight:700">7.5</td>
+</tr>
+<tr>
+<td>#6 Cursor Auto</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-5">6</td>
+<td class="s-5">6</td>
+<td class="s-7">7</td>
+<td class="s-5">6</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7" style="font-weight:700">7.2</td>
+</tr>
+<tr>
+<td>#7 Qwen 3.5</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-5">6</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-5">6</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7" style="font-weight:700">7.2</td>
+</tr>
+<tr>
+<td>#8 MiniMax-M2.5</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-9">9</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7" style="font-weight:700">7.6</td>
+</tr>
+<tr>
+<td>#9 Kimi-K2.5</td>
+<td class="s-5">5.5</td>
+<td class="s-7">7.5</td>
+<td class="s-7">7.5</td>
+<td class="s-5">6</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-5">6</td>
+<td class="s-7">7.5</td>
+<td class="s-5">6</td>
+<td class="s-5">5.5</td>
+<td class="s-7">6.5</td>
+<td class="s-7">7.5</td>
+<td class="s-5">4.5</td>
+<td class="s-7">6.5</td>
+<td class="s-5">6</td>
+<td class="s-7">6.5</td>
+<td class="s-7">7</td>
+<td class="s-5">6</td>
+<td class="s-7">6.5</td>
+<td class="s-7">7</td>
+<td class="s-5" style="font-weight:700">6.5</td>
+</tr>
+<tr>
+<td>#10 Nemotron-3-Super-120B</td>
+<td class="s-7">7</td>
+<td class="s-3">4</td>
+<td class="s-7">7</td>
+<td class="s-5">5</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-5">6</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-7">8</td>
+<td class="s-5">6</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-5">6</td>
+<td class="s-7">8</td>
+<td class="s-7" style="font-weight:700">6.9</td>
+</tr>
+<tr>
+<td>#11 GLM-4.7</td>
+<td class="s-7">7</td>
+<td class="s-7">7.5</td>
+<td class="s-7">6.5</td>
+<td class="s-7">6.5</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-5">6</td>
+<td class="s-7">6.5</td>
+<td class="s-7">6.5</td>
+<td class="s-5">6</td>
+<td class="s-7">7</td>
+<td class="s-7">7.5</td>
+<td class="s-7">7.5</td>
+<td class="s-5">5.5</td>
+<td class="s-5">5</td>
+<td class="s-7">7</td>
+<td class="s-5">5</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">7.5</td>
+<td class="s-7" style="font-weight:700">6.7</td>
+</tr>
+<tr>
+<td>#12 Grok-Code-Fast-1</td>
+<td class="s-7">7</td>
+<td class="s-5">6</td>
+<td class="s-7">8</td>
+<td class="s-5">6</td>
+<td class="s-7">8</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-5">6</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-5">6</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-5">6</td>
+<td class="s-7">7</td>
+<td class="s-7" style="font-weight:700">6.9</td>
+</tr>
+<tr>
+<td>#13 GPT-5.4-Medium</td>
+<td class="s-5">5</td>
+<td class="s-3">4</td>
+<td class="s-5">6</td>
+<td class="s-3">3</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-5">6</td>
+<td class="s-3">4</td>
+<td class="s-7">7</td>
+<td class="s-7">8</td>
+<td class="s-5">6</td>
+<td class="s-5">5</td>
+<td class="s-7">8</td>
+<td class="s-5">6</td>
+<td class="s-5">5</td>
+<td class="s-7">7</td>
+<td class="s-7">7</td>
+<td class="s-5">5</td>
+<td class="s-5">6</td>
+<td class="s-7">7</td>
+<td class="s-5" style="font-weight:700">6.0</td>
+</tr>
+</tbody></table></div>
+<h2>Скорость работы</h2>
+<div class="table-wrap"><table class="timing"><thead><tr>
+<th>#</th><th>Модель</th>
+<th>1-DS</th>
+<th>2-Arch</th>
+<th>3-Debug</th>
+<th>4-Spec</th>
+<th>5-Hall</th>
+<th>6-Tool</th>
+<th>7-Arch-D</th>
+<th>8-Long</th>
+<th>Всего</th><th>Avg</th><th>Retry</th>
+</tr></thead><tbody>
+<tr>
+<td>1</td><td>Claude Opus 4.6</td>
+<td>49.8с</td>
+<td>2м 0с</td>
+<td>36.0с</td>
+<td>48.1с</td>
+<td>44.3с</td>
+<td>32.4с</td>
+<td>1м 8с</td>
+<td>23.3с</td>
+<td style="font-weight:600">7м 3с</td>
+<td>52.8с</td>
+<td>1</td>
+</tr>
+<tr>
+<td>2</td><td>Composer-2</td>
+<td>52.5с</td>
+<td>2м 34с</td>
+<td>1м 14с</td>
+<td>1м 11с</td>
+<td>21.5с</td>
+<td>19.9с</td>
+<td>35.7с</td>
+<td>11.7с</td>
+<td style="font-weight:600">7м 20с</td>
+<td>55.0с</td>
+<td>1</td>
+</tr>
+<tr>
+<td>3</td><td>Mimo-V2-Omni</td>
+<td>1м 28с</td>
+<td>5м 44с</td>
+<td>1м 10с</td>
+<td>1м 14с</td>
+<td>35.1с</td>
+<td>15.8с</td>
+<td>19.0с</td>
+<td>16.8с</td>
+<td style="font-weight:600">11м 3с</td>
+<td>1м 23с</td>
+<td>1</td>
+</tr>
+<tr>
+<td>4</td><td>GPT-5.3-Codex-Fast</td>
+<td>40.4с</td>
+<td>3м 50с</td>
+<td>2м 40с</td>
+<td>50.6с</td>
+<td>14.3с</td>
+<td>19.7с</td>
+<td>36.1с</td>
+<td>26.6с</td>
+<td style="font-weight:600">9м 37с</td>
+<td>1м 12с</td>
+<td>1</td>
+</tr>
+<tr>
+<td>5</td><td>Mimo-V2-Pro</td>
+<td>1м 13с</td>
+<td>1м 58с</td>
+<td>29.7с</td>
+<td>1м 50с</td>
+<td>1м 33с</td>
+<td>18.5с</td>
+<td>38.7с</td>
+<td>12.3с</td>
+<td style="font-weight:600">8м 13с</td>
+<td>1м 2с</td>
+<td>3</td>
+</tr>
+<tr>
+<td>6</td><td>Cursor Auto</td>
+<td>48.1с</td>
+<td>2м 54с</td>
+<td>2м 49с</td>
+<td>21.3с</td>
+<td>13.5с</td>
+<td>13.2с</td>
+<td>40.0с</td>
+<td>19.5с</td>
+<td style="font-weight:600">8м 18с</td>
+<td>1м 2с</td>
+<td>2</td>
+</tr>
+<tr>
+<td>7</td><td>Qwen 3.5</td>
+<td>25.4с</td>
+<td>1м 52с</td>
+<td>17.4с</td>
+<td>18.1с</td>
+<td>7.8с</td>
+<td>7.9с</td>
+<td>39.0с</td>
+<td>9.0с</td>
+<td style="font-weight:600">3м 56с</td>
+<td>29.5с</td>
+<td>1.5</td>
+</tr>
+<tr>
+<td>8</td><td>MiniMax-M2.5</td>
+<td>52.6с</td>
+<td>7м 21с</td>
+<td>28.4с</td>
+<td>23.0с</td>
+<td>13.9с</td>
+<td>1м 5с</td>
+<td>17.6с</td>
+<td>15.8с</td>
+<td style="font-weight:600">10м 58с</td>
+<td>1м 22с</td>
+<td>1</td>
+</tr>
+<tr class="fastest">
+<td>9</td><td>Kimi-K2.5</td>
+<td>27.3с</td>
+<td>1м 8с</td>
+<td>18.6с</td>
+<td>28.4с</td>
+<td>12.7с</td>
+<td>9.4с</td>
+<td>15.8с</td>
+<td>8.7с</td>
+<td style="font-weight:600">3м 9с</td>
+<td>23.6с</td>
+<td>5</td>
+</tr>
+<tr>
+<td>10</td><td>Nemotron-3-Super-120B</td>
+<td>7м 38с</td>
+<td>5м 18с</td>
+<td>3м 47с</td>
+<td>2м 11с</td>
+<td>24.9с</td>
+<td>42.2с</td>
+<td>34.9с</td>
+<td>1м 7с</td>
+<td style="font-weight:600">21м 43с</td>
+<td>2м 43с</td>
+<td>1</td>
+</tr>
+<tr>
+<td>11</td><td>GLM-4.7</td>
+<td>19.2с</td>
+<td>2м 7с</td>
+<td>16.8с</td>
+<td>19.8с</td>
+<td>10.4с</td>
+<td>11.1с</td>
+<td>20.9с</td>
+<td>11.3с</td>
+<td style="font-weight:600">3м 57с</td>
+<td>29.6с</td>
+<td>4</td>
+</tr>
+<tr class="slowest">
+<td>12</td><td>Grok-Code-Fast-1</td>
+<td>24.9с</td>
+<td>31м 24с</td>
+<td>10м 38с</td>
+<td>19.5с</td>
+<td>8.1с</td>
+<td>23.7с</td>
+<td>15.6с</td>
+<td>12.3с</td>
+<td style="font-weight:600">43м 47с</td>
+<td>5м 28с</td>
+<td>1</td>
+</tr>
+<tr>
+<td>13</td><td>GPT-5.4-Medium</td>
+<td>1м 13с</td>
+<td>6м 29с</td>
+<td>1м 59с</td>
+<td>4м 12с</td>
+<td>37.5с</td>
+<td>20.7с</td>
+<td>39.5с</td>
+<td>20.5с</td>
+<td style="font-weight:600">15м 51с</td>
+<td>1м 59с</td>
+<td>2</td>
+</tr>
+</tbody></table></div>
+<h2>Выводы</h2>
+<div class="summary-box">
+<ul>
+<li><strong>Лидер:</strong> Claude Opus 4.6 (overall 9.54) — лучшие результаты по задачам и критериям модели.</li>
+<li><strong>Второе место:</strong> Composer-2 (overall 9.48).</li>
+<li><strong>Третье место:</strong> Mimo-V2-Omni (overall 9.08).</li>
+<li><strong>6-tool-calling:</strong> сценарий остаётся слабодифференцирующим и не входит в общий рейтинг.</li>
+<li><strong>Самый лёгкий сценарий:</strong> 1-data-structure — средний балл 9.9/10.</li>
+<li><strong>Сильнейший критерий:</strong> domain_knowledge (средний 7.9).</li>
+<li><strong>Слабейший критерий:</strong> instruction_following (средний 6.6).</li>
+</ul></div>
+</body></html>
