@@ -4,6 +4,11 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { runResults, runTasks } from '@/db/schema';
 import { uploadFile, BUCKETS } from '@/lib/s3';
+// Lazy import to avoid pulling Redis/env at module parse time (breaks unit tests)
+async function enqueueJudgeTasks(runResultId: string): Promise<void> {
+  const { enqueueJudgeTasks: enqueue } = await import('@/lib/judge/service');
+  return enqueue(runResultId);
+}
 import type { EvalResult, TaskMeta } from './types';
 
 interface TestResultsJson {
@@ -76,7 +81,7 @@ export class Reconciler {
     await this.uploadArtifacts(sessionDir, s3Key);
 
     // Insert into run_results (includes attempt for SSE replay)
-    await db.insert(runResults).values({
+    const [insertedResult] = await db.insert(runResults).values({
       runId: meta.runId,
       agentId: meta.agentId,
       modelId: meta.modelId,
@@ -89,6 +94,11 @@ export class Reconciler {
       attempt: meta.attempt,
       maxAttempts: meta.maxAttempts,
       artifactsS3Key: s3Key,
+    }).returning({ id: runResults.id });
+
+    // Fire-and-forget judge enqueue
+    enqueueJudgeTasks(insertedResult.id).catch((err) => {
+      console.error('[Reconciler] Failed to enqueue judge tasks:', err);
     });
 
     // Update run_tasks.status

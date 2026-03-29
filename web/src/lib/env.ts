@@ -10,6 +10,8 @@ const envSchema = z.object({
   WORK_ROOT: z.string().default('./work'),
   AGENTS_HOST_DIR: z.string().optional(),
   WORK_HOST_DIR: z.string().optional(),
+  REDIS_URL: z.string().default('redis://localhost:6379'),
+  JUDGE_ENCRYPTION_KEY: z.string().length(64).optional(), // 32 bytes hex, optional until judge system is configured
 });
 
 export const env = envSchema.parse(process.env);

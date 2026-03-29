@@ -5,11 +5,11 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.{ts,tsx}'],
     testTimeout: 30_000,
     coverage: {
       provider: 'v8',
-      include: ['src/lib/orchestrator/**'],
+      include: ['src/lib/orchestrator/**', 'src/lib/scenarios/**', 'src/app/api/scenarios/**'],
       exclude: ['src/lib/orchestrator/startup.ts', 'src/lib/orchestrator/types.ts'],
       thresholds: {
         lines: 85,

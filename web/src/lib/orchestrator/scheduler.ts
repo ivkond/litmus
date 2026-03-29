@@ -2,7 +2,8 @@ import * as fs from 'fs/promises';
 import path from 'path';
 import { eq, and, inArray } from 'drizzle-orm';
 import { db } from '@/db';
-import { runs, runTasks } from '@/db/schema';
+import { runs, runResults, runTasks } from '@/db/schema';
+import { refreshMatviews } from '@/lib/db/refresh-matviews';
 import { downloadFile, listFiles, BUCKETS } from '@/lib/s3';
 import type {
   AgentExecutor,
@@ -13,7 +14,7 @@ import type {
   TaskMeta,
 } from './types';
 import type { Reconciler } from './reconciler';
-import type { RunEventBus } from './event-bus';
+import type { EventBus } from './event-bus';
 
 export class Scheduler {
   private cancelled = false;
@@ -22,7 +23,7 @@ export class Scheduler {
   constructor(
     private executor: AgentExecutor,
     private reconciler: Reconciler,
-    private bus: RunEventBus,
+    private bus: EventBus,
     private workRoot: string,
   ) {}
 
@@ -30,7 +31,11 @@ export class Scheduler {
     this.cancelled = false;
 
     // Update run status to running
-    await db.update(runs).set({ status: 'running' }).where(eq(runs.id, config.runId)).catch(() => {});
+    await db
+      .update(runs)
+      .set({ status: 'running' })
+      .where(eq(runs.id, config.runId))
+      .catch((reason) => this.logBestEffortFailure(`Failed to mark run ${config.runId} as running`, reason));
 
     // Stage scenarios from S3 to work directory
     const allSlugs = new Set<string>();
@@ -93,7 +98,11 @@ export class Scheduler {
       .update(runs)
       .set({ status: finalStatus, finishedAt: new Date() })
       .where(eq(runs.id, config.runId))
-      .catch(() => {});
+      .catch((reason) => this.logBestEffortFailure(`Failed to finalize run ${config.runId}`, reason));
+
+    await refreshMatviews({
+      warn: (message) => console.warn(message),
+    }).catch((reason) => this.logBestEffortFailure(`Failed to refresh matviews after run ${config.runId}`, reason));
 
     // Cleanup workspace
     const runDir = path.join(this.workRoot, 'runs', config.runId);
@@ -111,7 +120,7 @@ export class Scheduler {
       .update(runTasks)
       .set({ status: 'cancelled', finishedAt: new Date() })
       .where(and(eq(runTasks.runId, runId), inArray(runTasks.status, ['pending', 'running'])))
-      .catch(() => {});
+      .catch((reason) => this.logBestEffortFailure(`Failed to cancel pending tasks for run ${runId}`, reason));
   }
 
   private async executeLane(
@@ -120,8 +129,10 @@ export class Scheduler {
   ): Promise<{ completed: number; failed: number; error: number; cancelled: number }> {
     const results = { completed: 0, failed: 0, error: 0, cancelled: 0 };
     const laneKey = `${lane.agent.slug}-${lane.model.name}`;
+    const maxAttempts = config.maxRetries + 1;
 
     let handle: ExecutorHandle | null = null;
+    let nextScenarioIndex = 0;
 
     try {
       const agentHostDir = this.resolveAgentHostDir(lane.agent.slug);
@@ -143,6 +154,7 @@ export class Scheduler {
       this.activeHandles.set(laneKey, handle);
 
       for (const scenario of lane.scenarios) {
+        nextScenarioIndex = lane.scenarios.indexOf(scenario);
         if (this.cancelled) {
           results.cancelled += lane.scenarios.length - (results.completed + results.failed + results.error);
           break;
@@ -150,8 +162,28 @@ export class Scheduler {
         const taskResult = await this.executeScenario(config, lane, scenario, handle);
         results[taskResult]++;
       }
-    } catch {
-      results.error += lane.scenarios.length - (results.completed + results.failed + results.error);
+    } catch (reason) {
+      const errorMessage = reason instanceof Error ? reason.message : String(reason);
+      const remainingScenarios = lane.scenarios.slice(nextScenarioIndex);
+      const startedAt = new Date();
+
+      for (const scenario of remainingScenarios) {
+        const taskId = this.resolveTaskId(config, lane, scenario.id);
+        this.bus.emit(config.runId, {
+          type: 'task:error',
+          runId: config.runId,
+          taskId,
+          agent: lane.agent.name,
+          model: lane.model.name,
+          scenario: scenario.slug,
+          errorMessage,
+        });
+        await this.persistTaskError(
+          this.buildTaskMeta(config, lane, scenario, taskId, 1, maxAttempts, startedAt),
+          errorMessage,
+        );
+        results.error++;
+      }
     } finally {
       if (handle) {
         try { await this.executor.stop(handle); } catch { /* best effort */ }
@@ -193,6 +225,8 @@ export class Scheduler {
     const taskId = this.resolveTaskId(config, lane, scenario.id);
     const startedAt = new Date();
     const maxAttempts = config.maxRetries + 1;
+    const buildErrorMeta = (attempt: number) =>
+      this.buildTaskMeta(config, lane, scenario, taskId, attempt, maxAttempts, startedAt);
 
     this.bus.emit(config.runId, {
       type: 'task:started',
@@ -235,7 +269,7 @@ export class Scheduler {
           agent: lane.agent.name, model: lane.model.name, scenario: scenario.slug,
           errorMessage: msg,
         });
-        await this.persistTaskError(taskId, msg);
+        await this.persistTaskError(buildErrorMeta(1), msg);
         return 'error';
       }
 
@@ -273,7 +307,7 @@ export class Scheduler {
             agent: lane.agent.name, model: lane.model.name, scenario: scenario.slug,
             errorMessage: msg,
           });
-          await this.persistTaskError(taskId, msg);
+          await this.persistTaskError(buildErrorMeta(attempt), msg);
           return 'error';
         }
 
@@ -290,7 +324,7 @@ export class Scheduler {
             agent: lane.agent.name, model: lane.model.name, scenario: scenario.slug,
             errorMessage: msg,
           });
-          await this.persistTaskError(taskId, msg);
+          await this.persistTaskError(buildErrorMeta(attempt), msg);
           return 'error';
         }
 
@@ -338,7 +372,7 @@ export class Scheduler {
         agent: lane.agent.name, model: lane.model.name, scenario: scenario.slug,
         errorMessage: msg,
       });
-      await this.persistTaskError(taskId, msg);
+      await this.persistTaskError(buildErrorMeta(1), msg);
       return 'error';
     }
   }
@@ -361,12 +395,36 @@ export class Scheduler {
   }
 
   /** Persist terminal error status to run_tasks so reload/replay works */
-  private async persistTaskError(taskId: string, errorMessage: string): Promise<void> {
+  private async persistTaskError(meta: TaskMeta, errorMessage: string): Promise<void> {
+    const finishedAt = new Date();
+    const durationSeconds = Math.max(0, Math.round((finishedAt.getTime() - meta.startedAt.getTime()) / 1000));
+
+    await db
+      .insert(runResults)
+      .values({
+        runId: meta.runId,
+        agentId: meta.agentId,
+        modelId: meta.modelId,
+        scenarioId: meta.scenarioId,
+        status: 'error',
+        testsPassed: 0,
+        testsTotal: 0,
+        totalScore: 0,
+        durationSeconds,
+        attempt: meta.attempt,
+        maxAttempts: meta.maxAttempts,
+        errorMessage,
+      })
+      .onConflictDoNothing({
+        target: [runResults.runId, runResults.agentId, runResults.modelId, runResults.scenarioId],
+      })
+      .catch((reason) => this.logBestEffortFailure(`Failed to insert error result for task ${meta.taskId}`, reason));
+
     await db
       .update(runTasks)
-      .set({ status: 'error', finishedAt: new Date(), errorMessage })
-      .where(eq(runTasks.id, taskId))
-      .catch(() => {}); // best-effort — don't block execution
+      .set({ status: 'error', finishedAt, errorMessage })
+      .where(eq(runTasks.id, meta.taskId))
+      .catch((reason) => this.logBestEffortFailure(`Failed to persist error status for task ${meta.taskId}`, reason));
   }
 
   /** Exit codes that signal non-retryable infrastructure failures */
@@ -407,5 +465,10 @@ export class Scheduler {
       const content = await downloadFile(BUCKETS.scenarios, key);
       await fs.writeFile(targetPath, content);
     }
+  }
+
+  private logBestEffortFailure(message: string, reason: unknown): void {
+    const detail = reason instanceof Error ? reason.message : String(reason);
+    console.warn(`[scheduler] ${message}: ${detail}`);
   }
 }

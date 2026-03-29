@@ -14,6 +14,7 @@ litmus.yaml
 template/
 temp/
 .superpowers/
+.worktrees/
 .gitnexus/
 .claude/
 .agents/

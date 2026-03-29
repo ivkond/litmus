@@ -6,7 +6,7 @@ import os from 'os';
 import type { EvalResult, TaskMeta } from '../types';
 
 const { mockDbInsertValues, mockDbUpdateSetWhere } = vi.hoisted(() => {
-  const mockDbInsertValues = vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) });
+  const mockDbInsertValues = vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([{ id: 'mock-run-result-id' }]) });
   const mockDbUpdateSetWhere = vi.fn().mockResolvedValue(undefined);
   return { mockDbInsertValues, mockDbUpdateSetWhere };
 });
@@ -25,6 +25,10 @@ vi.mock('@/db', () => ({
 vi.mock('@/db/schema', () => ({
   runResults: { id: 'run_results.id' },
   runTasks: { id: 'run_tasks.id' },
+}));
+
+vi.mock('@/lib/judge/service', () => ({
+  enqueueJudgeTasks: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@/lib/s3', () => ({

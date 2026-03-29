@@ -1,8 +1,48 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Scheduler } from '../scheduler';
-import { RunEventBus } from '../event-bus';
+import { InMemoryEventBus } from '../event-bus';
 import { Reconciler } from '../reconciler';
 import type { AgentExecutor, ExecutorHandle, RunConfig, RunEvent } from '../types';
+
+const dbMocks = vi.hoisted(() => {
+  const insertedRows: unknown[] = [];
+  const whereMock = vi.fn().mockResolvedValue(undefined);
+  const returningMock = vi.fn().mockResolvedValue([]);
+  const setMock = vi.fn().mockReturnValue({
+    where: whereMock,
+    returning: returningMock,
+  });
+  const updateMock = vi.fn().mockReturnValue({
+    set: setMock,
+  });
+  const onConflictDoNothingMock = vi.fn().mockResolvedValue(undefined);
+  const valuesMock = vi.fn().mockImplementation((value: unknown) => {
+    insertedRows.push(value);
+    return {
+      returning: vi.fn().mockResolvedValue([]),
+      onConflictDoUpdate: vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([]),
+      }),
+      onConflictDoNothing: onConflictDoNothingMock,
+    };
+  });
+  const insertMock = vi.fn().mockReturnValue({
+    values: valuesMock,
+  });
+
+  return {
+    insertedRows,
+    whereMock,
+    returningMock,
+    setMock,
+    updateMock,
+    onConflictDoNothingMock,
+    valuesMock,
+    insertMock,
+  };
+});
+
+const refreshMatviewsMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 
 vi.mock('@/lib/s3', () => ({
   downloadFile: vi.fn().mockResolvedValue(Buffer.from('')),
@@ -12,26 +52,19 @@ vi.mock('@/lib/s3', () => ({
 
 vi.mock('@/db', () => ({
   db: {
-    update: vi.fn().mockReturnValue({
-      set: vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue(undefined),
-      }),
-    }),
-    insert: vi.fn().mockReturnValue({
-      values: vi.fn().mockReturnValue({
-        returning: vi.fn().mockResolvedValue([]),
-        onConflictDoUpdate: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([]),
-        }),
-      }),
-    }),
+    update: dbMocks.updateMock,
+    insert: dbMocks.insertMock,
   },
 }));
 
+vi.mock('@/lib/db/refresh-matviews', () => ({
+  refreshMatviews: refreshMatviewsMock,
+}));
+
 vi.mock('@/db/schema', () => ({
-  runs: {},
-  runTasks: {},
-  runResults: {},
+  runs: { name: 'runs' },
+  runTasks: { name: 'runTasks' },
+  runResults: { name: 'runResults' },
 }));
 
 function createMockExecutor(): AgentExecutor & { calls: string[] } {
@@ -71,8 +104,20 @@ function createMockReconciler(): Reconciler {
   return reconciler;
 }
 
+function resetDbMocks() {
+  dbMocks.insertedRows.length = 0;
+  dbMocks.whereMock.mockClear();
+  dbMocks.returningMock.mockClear();
+  dbMocks.setMock.mockClear();
+  dbMocks.updateMock.mockClear();
+  dbMocks.onConflictDoNothingMock.mockClear();
+  dbMocks.valuesMock.mockClear();
+  dbMocks.insertMock.mockClear();
+  refreshMatviewsMock.mockClear();
+}
+
 describe('Scheduler', () => {
-  let bus: RunEventBus;
+  let bus: InMemoryEventBus;
   let executor: ReturnType<typeof createMockExecutor>;
   let reconciler: ReturnType<typeof createMockReconciler>;
   let events: RunEvent[];
@@ -96,7 +141,8 @@ describe('Scheduler', () => {
   };
 
   beforeEach(() => {
-    bus = new RunEventBus();
+    resetDbMocks();
+    bus = new InMemoryEventBus();
     executor = createMockExecutor();
     reconciler = createMockReconciler();
     events = [];
@@ -181,11 +227,12 @@ describe('Scheduler', () => {
       errorTasks: 0,
       cancelledTasks: 0,
     }));
+    expect(refreshMatviewsMock).toHaveBeenCalledTimes(1);
   });
 });
 
 describe('Scheduler error paths', () => {
-  let bus: RunEventBus;
+  let bus: InMemoryEventBus;
   let executor: ReturnType<typeof createMockExecutor>;
   let reconciler: ReturnType<typeof createMockReconciler>;
   let events: RunEvent[];
@@ -209,7 +256,8 @@ describe('Scheduler error paths', () => {
   };
 
   beforeEach(() => {
-    bus = new RunEventBus();
+    resetDbMocks();
+    bus = new InMemoryEventBus();
     executor = createMockExecutor();
     reconciler = createMockReconciler();
     events = [];
@@ -237,9 +285,35 @@ describe('Scheduler error paths', () => {
 
     const taskError = events.find((e) => e.type === 'task:error');
     expect(taskError).toHaveProperty('errorMessage', expect.stringContaining('infra error'));
+    expect(dbMocks.insertedRows).toContainEqual(expect.objectContaining({
+      runId: 'run-1',
+      agentId: 'a1',
+      modelId: 'm1',
+      scenarioId: 's1',
+      status: 'error',
+      errorMessage: expect.stringContaining('infra error'),
+    }));
+    expect(dbMocks.onConflictDoNothingMock).toHaveBeenCalled();
 
     const runCompleted = events.find((e) => e.type === 'run:completed');
     expect(runCompleted).toHaveProperty('errorTasks', 1);
+  });
+
+  it('persists error rows for remaining scenarios when lane bootstrap fails', async () => {
+    vi.spyOn(executor, 'start').mockRejectedValue(new Error('docker unavailable'));
+
+    const scheduler = new Scheduler(executor, reconciler, bus, './work');
+    await scheduler.execute(config);
+
+    expect(dbMocks.insertedRows).toContainEqual(expect.objectContaining({
+      runId: 'run-1',
+      agentId: 'a1',
+      modelId: 'm1',
+      scenarioId: 's1',
+      status: 'error',
+      errorMessage: 'docker unavailable',
+    }));
+    expect(refreshMatviewsMock).toHaveBeenCalledTimes(1);
   });
 
   it('emits task:error with timeout message on exit code 124 and does not retry', async () => {
@@ -323,11 +397,12 @@ describe('Scheduler error paths', () => {
 });
 
 describe('Scheduler cancel and concurrency', () => {
-  let bus: RunEventBus;
+  let bus: InMemoryEventBus;
   let events: RunEvent[];
 
   beforeEach(() => {
-    bus = new RunEventBus();
+    resetDbMocks();
+    bus = new InMemoryEventBus();
     events = [];
     bus.subscribe('run-cc', (e) => events.push(e));
   });
@@ -394,6 +469,7 @@ describe('Scheduler cancel and concurrency', () => {
       (cancelledEvent as { completedTasks: number; cancelledTasks: number }).completedTasks +
       (cancelledEvent as { completedTasks: number; cancelledTasks: number }).cancelledTasks;
     expect(totalAccounted).toBeGreaterThanOrEqual(0);
+    expect(refreshMatviewsMock).toHaveBeenCalledTimes(1);
   });
 
   it('processes multiple lanes with concurrency limit', async () => {

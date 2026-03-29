@@ -8,6 +8,7 @@ import {
   jsonb,
   uniqueIndex,
   index,
+  boolean,
 } from 'drizzle-orm/pg-core';
 
 // ─── Reference Tables ───────────────────────────────────────────
@@ -71,7 +72,11 @@ export const runResults = pgTable('run_results', {
   attempt: integer('attempt').notNull().default(1),
   maxAttempts: integer('max_attempts').notNull().default(1),
   judgeScores: jsonb('judge_scores'),
-  judgeModel: text('judge_model'),
+  judgeStatus: text('judge_status').default('pending'),
+  blockingFlags: jsonb('blocking_flags'),
+  compositeScore: real('composite_score'),
+  judgeMeta: jsonb('judge_meta'),
+  evaluationVersion: integer('evaluation_version').default(1).notNull(),
   artifactsS3Key: text('artifacts_s3_key'),
   errorMessage: text('error_message'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
@@ -118,6 +123,75 @@ export const runTasks = pgTable('run_tasks', {
   index('idx_run_tasks_status').on(table.status),
 ]);
 
+// ─── Judge System Tables ─────────────────────────────────────────
+
+export const judgeProviders = pgTable('judge_providers', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: text('name').notNull(),
+  baseUrl: text('base_url').notNull(),
+  apiKey: text('api_key').notNull(), // encrypted at rest
+  model: text('model').notNull(),
+  enabled: boolean('enabled').default(true).notNull(),
+  priority: integer('priority').default(0).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const judgeVerdicts = pgTable(
+  'judge_verdicts',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    runResultId: uuid('run_result_id')
+      .references(() => runResults.id, { onDelete: 'cascade' })
+      .notNull(),
+    judgeProviderId: uuid('judge_provider_id')
+      .references(() => judgeProviders.id)
+      .notNull(),
+    scores: jsonb('scores').notNull(), // { criteria_key: { score, rationale } }
+    blockingFlags: jsonb('blocking_flags').notNull(), // { flag_key: { triggered, rationale } }
+    rawResponse: text('raw_response'),
+    durationMs: integer('duration_ms'),
+    error: text('error'),
+    evaluationVersion: integer('evaluation_version').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('judge_verdicts_unique').on(
+      table.runResultId,
+      table.judgeProviderId,
+      table.evaluationVersion
+    ),
+  ]
+);
+
+export const compressionLogs = pgTable(
+  'compression_logs',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    runResultId: uuid('run_result_id')
+      .references(() => runResults.id, { onDelete: 'cascade' })
+      .notNull(),
+    inputChars: integer('input_chars').notNull(),
+    outputChars: integer('output_chars').notNull(),
+    ratio: real('ratio').notNull(),
+    compressorType: text('compressor_type').notNull(),
+    durationMs: integer('duration_ms'),
+    evaluationVersion: integer('evaluation_version').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('compression_logs_unique').on(
+      table.runResultId,
+      table.evaluationVersion
+    ),
+  ]
+);
+
+export const settings = pgTable('settings', {
+  key: text('key').primaryKey(),
+  value: jsonb('value').notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 // ─── Type Exports ───────────────────────────────────────────────
 
 export type Agent = typeof agents.$inferSelect;
@@ -127,3 +201,7 @@ export type Run = typeof runs.$inferSelect;
 export type RunResult = typeof runResults.$inferSelect;
 export type AgentExecutor = typeof agentExecutors.$inferSelect;
 export type RunTask = typeof runTasks.$inferSelect;
+export type JudgeProvider = typeof judgeProviders.$inferSelect;
+export type JudgeVerdict = typeof judgeVerdicts.$inferSelect;
+export type CompressionLog = typeof compressionLogs.$inferSelect;
+export type Setting = typeof settings.$inferSelect;

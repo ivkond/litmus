@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
-import { RunEventBus } from '../event-bus';
+import { InMemoryEventBus } from '../event-bus';
 import type { TaskStartedEvent, RunCompletedEvent } from '../types';
 
-describe('RunEventBus', () => {
+describe('InMemoryEventBus', () => {
   it('delivers events to subscribers of a specific run', () => {
-    const bus = new RunEventBus();
+    const bus = new InMemoryEventBus();
     const handler = vi.fn();
 
     bus.subscribe('run-1', handler);
@@ -28,7 +28,7 @@ describe('RunEventBus', () => {
   });
 
   it('does not deliver events to subscribers of other runs', () => {
-    const bus = new RunEventBus();
+    const bus = new InMemoryEventBus();
     const handler = vi.fn();
 
     bus.subscribe('run-2', handler);
@@ -49,7 +49,7 @@ describe('RunEventBus', () => {
   });
 
   it('unsubscribe stops delivery', () => {
-    const bus = new RunEventBus();
+    const bus = new InMemoryEventBus();
     const handler = vi.fn();
 
     const unsub = bus.subscribe('run-1', handler);
@@ -69,7 +69,7 @@ describe('RunEventBus', () => {
   });
 
   it('supports multiple subscribers for the same run', () => {
-    const bus = new RunEventBus();
+    const bus = new InMemoryEventBus();
     const h1 = vi.fn();
     const h2 = vi.fn();
 
