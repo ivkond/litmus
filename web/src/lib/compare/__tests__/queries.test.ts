@@ -86,4 +86,98 @@ describe('fetchCompareData', () => {
       errorCount: 2,
     }));
   });
+
+  it('returns empty participants arrays when no data (model-ranking)', async () => {
+    sqlMock.mockResolvedValueOnce([{ cnt: 0 }]);
+    sqlMock.unsafe.mockResolvedValueOnce([]);
+    sqlMock.mockResolvedValueOnce([]);
+    sqlMock.unsafe.mockResolvedValueOnce([]);
+    sqlMock.unsafe.mockResolvedValueOnce([]);
+    sqlMock.unsafe.mockResolvedValueOnce([]);
+
+    const result = await fetchCompareData({ lens: 'model-ranking' });
+
+    expect(result.participants).toBeDefined();
+    expect(result.participants).toEqual({
+      agentIds: [],
+      modelIds: [],
+      scenarioIds: [],
+    });
+  });
+
+  it('populates participants for model-ranking with deduped sorted IDs', async () => {
+    sqlMock.mockResolvedValueOnce([{ cnt: 2 }]);
+    sqlMock.unsafe
+      .mockResolvedValueOnce([
+        {
+          entity_id: 'model-b',
+          entity_name: 'GPT-4o',
+          avg_score: 85,
+          scenario_count: 2,
+          counterpart_count: 1,
+          judged_count: 2,
+          judged_total: 2,
+        },
+        {
+          entity_id: 'model-a',
+          entity_name: 'Claude',
+          avg_score: 90,
+          scenario_count: 2,
+          counterpart_count: 1,
+          judged_count: 2,
+          judged_total: 2,
+        },
+      ]);
+    sqlMock.mockResolvedValueOnce([
+      { id: 'scenario-b', slug: 'chat', name: 'Chat' },
+      { id: 'scenario-a', slug: 'api', name: 'API' },
+    ]);
+    sqlMock.unsafe
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    // Counterpart query (agents for model-ranking)
+    sqlMock.unsafe.mockResolvedValueOnce([
+      { id: 'agent-c' },
+      { id: 'agent-a' },
+    ]);
+
+    const result = await fetchCompareData({ lens: 'model-ranking' });
+
+    expect(result.participants).toEqual({
+      agentIds: ['agent-a', 'agent-c'],
+      modelIds: ['model-a', 'model-b'],
+      scenarioIds: ['scenario-a', 'scenario-b'],
+    });
+  });
+
+  it('populates participants for agent-x-models from anchor and entities', async () => {
+    sqlMock.mockResolvedValueOnce([{ cnt: 1 }]);
+    sqlMock.unsafe.mockResolvedValueOnce([{ id: 'agent-1', name: 'Cursor' }]);
+    sqlMock
+      .mockResolvedValueOnce([
+        {
+          entity_id: 'model-2',
+          entity_name: 'GPT-4o',
+          avg_score: 80,
+          scenario_count: 1,
+          judged_count: 1,
+          judged_total: 1,
+        },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { id: 'scenario-1', slug: 'todo', name: 'Todo' },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+
+    const result = await fetchCompareData({ lens: 'agent-x-models', agentId: 'agent-1' });
+
+    expect(result.participants).toEqual({
+      agentIds: ['agent-1'],
+      modelIds: ['model-2'],
+      scenarioIds: ['scenario-1'],
+    });
+  });
 });

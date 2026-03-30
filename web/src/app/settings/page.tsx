@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { db } from '@/db';
 import { agents, agentExecutors, settings } from '@/db/schema';
 import { z } from 'zod';
@@ -7,6 +8,7 @@ import { ScoringConfig } from '@/components/settings/scoring-config';
 import { GeneralSettings } from '@/components/settings/general-settings';
 import type { GeneralSettingsData } from '@/components/settings/general-settings';
 import type { AgentWithExecutors } from '@/components/settings/agent-form';
+import { SettingsTabs } from './settings-tabs';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,19 +50,16 @@ export default async function SettingsPage() {
     <div className="max-w-4xl mx-auto p-6 space-y-8">
       <h1 className="text-2xl font-bold font-mono text-[var(--text-primary)]">Settings</h1>
 
-      <AgentManager initialAgents={agentList} />
-
-      <hr className="border-[var(--border)]" />
-
-      <JudgeProviders />
-
-      <hr className="border-[var(--border)]" />
-
-      <ScoringConfig />
-
-      <hr className="border-[var(--border)]" />
-
-      <GeneralSettings initialSettings={generalSettings} />
+      <Suspense fallback={<div className="text-sm text-[var(--text-muted)]">Loading...</div>}>
+        <SettingsTabs
+          sections={{
+            agents: <AgentManager initialAgents={agentList} />,
+            'judge-providers': <JudgeProviders />,
+            scoring: <ScoringConfig />,
+            general: <GeneralSettings initialSettings={generalSettings} />,
+          }}
+        />
+      </Suspense>
     </div>
   );
 }

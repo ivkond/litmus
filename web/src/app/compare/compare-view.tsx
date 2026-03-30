@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { CompareResponse } from '@/lib/compare/types';
 import { AnchorDropdown } from '@/components/compare/anchor-dropdown';
@@ -9,6 +10,59 @@ import { DrillDownPanel } from '@/components/compare/drill-down-panel';
 import { Heatmap } from '@/components/compare/heatmap';
 import { Leaderboard } from '@/components/compare/leaderboard';
 import { TabBar } from '@/components/compare/tab-bar';
+
+const MAX_URL_BYTES = 6144;
+
+export function buildPrefillUrl(participants: {
+  agentIds: string[];
+  modelIds: string[];
+  scenarioIds: string[];
+}): string {
+  const parts: Array<{ key: string; ids: string[] }> = [
+    { key: 'agents', ids: participants.agentIds },
+    { key: 'models', ids: participants.modelIds },
+    { key: 'scenarios', ids: participants.scenarioIds },
+  ];
+
+  // Manual query string: URLSearchParams encodes commas as %2C (3 bytes
+  // vs 1), inflating URL length and distorting the 6KB truncation threshold.
+  // searchParams.get() would decode them back, but the longer encoded URL
+  // defeats the byte-based safety check. UUIDs are safe for raw join.
+  function buildUrl(paramParts: Array<{ key: string; ids: string[] }>): string {
+    const params = paramParts
+      .filter((p) => p.ids.length > 0)
+      .map((p) => `${p.key}=${p.ids.join(',')}`)
+      .join('&');
+    return params ? `/run?${params}` : '/run';
+  }
+
+  let url = buildUrl(parts);
+  let byteLength = new TextEncoder().encode(url).length;
+
+  if (byteLength <= MAX_URL_BYTES) {
+    return url;
+  }
+
+  // Progressive truncation: only drop scenarios to preserve agent×model compatibility.
+  const scenarioPart = parts[2]; // 'scenarios'
+  const originalCount = scenarioPart.ids.length;
+
+  while (scenarioPart.ids.length > 1) {
+    scenarioPart.ids = scenarioPart.ids.slice(0, scenarioPart.ids.length - 1);
+    url = buildUrl(parts);
+    byteLength = new TextEncoder().encode(url).length;
+    if (byteLength <= MAX_URL_BYTES) {
+      console.warn(
+        `[buildPrefillUrl] Truncated scenarios from ${originalCount} to ${scenarioPart.ids.length} to fit URL limit`
+      );
+      return url;
+    }
+  }
+
+  // If still too long after truncating scenarios to 1, return as-is
+  console.warn('[buildPrefillUrl] URL still exceeds limit after truncating scenarios to 1');
+  return url;
+}
 
 interface Props {
   data: CompareResponse;
@@ -114,8 +168,19 @@ export function CompareView({ data }: Props) {
       <div className="flex items-center justify-between">
         <h1 className="font-mono text-lg text-[var(--text-primary)]">Compare</h1>
 
-        {/* Actions dropdown — judge control */}
-        <div className="relative">
+        <div className="flex items-center gap-3">
+          {/* "Run more tests" link — visible when compare has results */}
+          {data.leaderboard.length > 0 && (
+            <Link
+              href={buildPrefillUrl(data.participants)}
+              className="font-mono text-xs text-[var(--accent)] hover:underline"
+            >
+              + Run more tests
+            </Link>
+          )}
+
+          {/* Actions dropdown — judge control */}
+          <div className="relative">
           <button
             onClick={() => setActionsOpen(!actionsOpen)}
             disabled={actionLoading !== null}
@@ -163,6 +228,7 @@ export function CompareView({ data }: Props) {
               </button>
             </div>
           )}
+          </div>
         </div>
       </div>
 

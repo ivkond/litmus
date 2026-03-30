@@ -40,6 +40,11 @@ export interface CompareResponse {
     cells: Record<string, Record<string, HeatmapCell | null>>;
     totals: Record<string, number>;
   };
+  participants: {
+    agentIds: string[];
+    modelIds: string[];
+    scenarioIds: string[];
+  };
 }
 
 export interface BreakdownResponse {

@@ -607,6 +607,7 @@ Each card shows data availability stats.
 #### 3c. Heatmap (all lenses)
 
 - Rows = scenarios, columns = entities being compared
+  > **Implementation note (Phase 3):** The shipped implementation inverts this axis — rows = entities, columns = scenarios — for better leaderboard-to-heatmap visual mapping. This is an intentional deviation documented in `docs/AUDIT.md`.
 - Color-coded cells (5-point continuous scale)
 - Best-in-row highlighted with accent outline
 - TOTAL row with averages

@@ -198,6 +198,23 @@ async function fetchRankingData(
     totals[row.id] = scores.length > 0 ? scores.reduce((sum, value) => sum + value, 0) / scores.length : 0;
   }
 
+  // Fetch counterpart IDs for participants
+  const counterpartRows = await sql.unsafe(`
+    SELECT DISTINCT lr.${config.counterpartCol} AS id
+    FROM latest_results lr
+  `);
+  const counterpartIds = (counterpartRows as SqlRow[]).map((row) => String(row.id));
+
+  const entityIds = leaderboard.map((e) => e.entityId);
+  const scenarioIds = columns.map((c) => c.id);
+
+  const isModelRanking = lens === 'model-ranking';
+  const participants = {
+    agentIds: dedupSort(isModelRanking ? counterpartIds : entityIds),
+    modelIds: dedupSort(isModelRanking ? entityIds : counterpartIds),
+    scenarioIds: dedupSort(scenarioIds),
+  };
+
   return {
     lens,
     canonicalParams: { lens },
@@ -208,6 +225,7 @@ async function fetchRankingData(
       cells,
       totals,
     },
+    participants,
   };
 }
 
@@ -250,6 +268,7 @@ async function fetchDetailedData(
       canonicalParams,
       leaderboard: [],
       heatmap: { columns: [], rows: [], cells: {}, totals: {} },
+      participants: { agentIds: [], modelIds: [], scenarioIds: [] },
     };
   }
 
@@ -481,6 +500,21 @@ async function fetchDetailedData(
     totals[row.id] = scores.length > 0 ? scores.reduce((sum, value) => sum + value, 0) / scores.length : 0;
   }
 
+  const entityIds = leaderboard.map((e) => e.entityId);
+  const scenarioIds = columns.map((c) => c.id);
+
+  const participants = isAgentFixed
+    ? {
+        agentIds: dedupSort(anchorId ? [anchorId] : []),
+        modelIds: dedupSort(entityIds),
+        scenarioIds: dedupSort(scenarioIds),
+      }
+    : {
+        agentIds: dedupSort(entityIds),
+        modelIds: dedupSort(anchorId ? [anchorId] : []),
+        scenarioIds: dedupSort(scenarioIds),
+      };
+
   return {
     lens: params.lens,
     anchor,
@@ -493,9 +527,14 @@ async function fetchDetailedData(
       cells,
       totals,
     },
+    participants,
   };
 }
 
 function slugify(value: string): string {
   return value.toLowerCase().replace(/\s+/g, '-');
+}
+
+function dedupSort(ids: string[]): string[] {
+  return [...new Set(ids)].sort();
 }
