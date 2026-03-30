@@ -147,6 +147,9 @@ export const settingsSchemas: Record<string, z.ZodType> = {
   max_judge_prompt_chars: z.number().int().min(10000).max(500000),
   judge_task_idle_timeout_ms: z.number().int().min(60000).max(1800000),
   judge_raw_response_retention_days: z.number().int().min(1).max(365),
+  general_theme: z.enum(['light', 'dark', 'system']),
+  general_auto_judge: z.boolean(),
+  general_max_concurrent_lanes: z.number().int().min(1).max(10),
 };
 
 // Default values for all settings
@@ -177,4 +180,7 @@ export const settingsDefaults: Record<string, unknown> = {
   max_judge_prompt_chars: 120000,
   judge_task_idle_timeout_ms: 300000,
   judge_raw_response_retention_days: 90,
+  general_theme: 'dark',
+  general_auto_judge: false,
+  general_max_concurrent_lanes: 3,
 };

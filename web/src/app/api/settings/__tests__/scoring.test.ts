@@ -32,6 +32,27 @@ describe('Settings Zod validation', () => {
     expect(schema.safeParse(2000000).success).toBe(false);
   });
 
+  it('has general settings keys registered', () => {
+    expect(settingsSchemas).toHaveProperty('general_theme');
+    expect(settingsSchemas).toHaveProperty('general_auto_judge');
+    expect(settingsSchemas).toHaveProperty('general_max_concurrent_lanes');
+  });
+
+  it('general_theme accepts light/dark/system only', () => {
+    const schema = settingsSchemas['general_theme'];
+    expect(schema.safeParse('dark').success).toBe(true);
+    expect(schema.safeParse('light').success).toBe(true);
+    expect(schema.safeParse('system').success).toBe(true);
+    expect(schema.safeParse('auto').success).toBe(false);
+  });
+
+  it('general_max_concurrent_lanes: range 1-10', () => {
+    const schema = settingsSchemas['general_max_concurrent_lanes'];
+    expect(schema.safeParse(3).success).toBe(true);
+    expect(schema.safeParse(0).success).toBe(false);
+    expect(schema.safeParse(11).success).toBe(false);
+  });
+
   it('all defaults pass their own validation', () => {
     for (const [key, schema] of Object.entries(settingsSchemas)) {
       const defaultValue = settingsDefaults[key];
