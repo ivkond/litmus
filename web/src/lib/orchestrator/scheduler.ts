@@ -33,14 +33,23 @@ export class Scheduler {
     private workRoot: string,
   ) {}
 
+  /**
+   * Map agentType to ACP launch command.
+   *
+   * Agents with native ACP: opencode, kilocode.
+   * Agents via ACP adapter: claude-code, codex, cursor.
+   * Agents pending adapter fix: cline (cline-acp incompatible with cline v2.13).
+   *
+   * Keys MUST match `agent_executors.agent_type` values in DB.
+   */
   private resolveAcpConfig(agentType: string): AcpAgentConfig {
     const configs: Record<string, AcpAgentConfig> = {
-      'claude-code': { acpCmd: ['claude', '--acp'], requiresAuth: true },
-      'codex': { acpCmd: ['codex', 'acp'], requiresAuth: true },
-      'opencode': { acpCmd: ['opencode', 'acp'], requiresAuth: true },
+      'claude-code': { acpCmd: ['claude-agent-acp'], requiresAuth: true },
+      'codex': { acpCmd: ['codex-acp'], requiresAuth: true },
+      'cursor': { acpCmd: ['cursor-agent-acp'], requiresAuth: true },
       'cline': { acpCmd: ['cline', '--acp'], requiresAuth: true },
+      'opencode': { acpCmd: ['opencode', 'acp'], requiresAuth: true },
       'kilocode': { acpCmd: ['kilo', 'acp'], requiresAuth: true },
-      'cursor': { acpCmd: ['agent', '--acp'], requiresAuth: true },
       'mock': { acpCmd: ['python3', '/opt/agent/mock-acp-server.py'], requiresAuth: false },
     };
     const config = configs[agentType];

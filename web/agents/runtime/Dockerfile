@@ -16,8 +16,10 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
 # ── Agent CLIs ────────────────────────────────────────────────
 
 # 1. Cursor (https://cursor.com/cli) — installs `agent` binary
+#    Symlink as `cursor-agent` for cursor-agent-acp adapter compatibility
 RUN curl -fsSL https://cursor.com/install | bash \
-    && ln -sf /root/.local/bin/agent /usr/local/bin/agent
+    && ln -sf /root/.local/bin/agent /usr/local/bin/agent \
+    && ln -sf /root/.local/bin/agent /usr/local/bin/cursor-agent
 
 # 2. Claude Code (https://code.claude.com) — installs `claude` binary
 RUN curl -fsSL https://claude.ai/install.sh | bash \
@@ -33,7 +35,21 @@ RUN curl -fsSL https://opencode.ai/install | bash \
 # 5. Cline (https://docs.cline.bot) — npm package, requires Node 20+
 RUN npm install -g cline
 
-# acpx — ACP adapter layer for agents without native ACP support (https://github.com/openclaw/acpx)
+# ── ACP adapters (for agents without native --acp flag) ───────
+
+# claude-agent-acp — official ACP wrapper for Claude Code (uses Claude Agent SDK under the hood)
+RUN npm install -g @agentclientprotocol/claude-agent-acp
+
+# codex-acp — official ACP wrapper for Codex (by Zed Industries)
+RUN npm install -g @zed-industries/codex-acp
+
+# cursor-agent-acp — community ACP adapter for Cursor CLI
+RUN npm install -g @blowmage/cursor-agent-acp
+
+# cline-acp — community ACP adapter for Cline
+RUN npm install -g cline-acp
+
+# acpx — headless ACP CLI client for debugging (https://github.com/openclaw/acpx)
 RUN npm install -g acpx@latest
 
 # 6. KiloCode (https://github.com/Kilo-Org/kilocode) — glibc binary (Debian-based image)

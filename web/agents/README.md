@@ -10,15 +10,15 @@ All agents run inside the `litmus/runtime-python` Docker image. Each agent commu
 
 ## Agent CLIs
 
-| Agent | Binary | ACP Command | Install Method | Required Env Vars |
+| Agent | Binary | ACP Command | ACP Method | Required Env Vars |
 |---|---|---|---|---|
-| Cursor | `agent` | `agent --acp` | curl installer | `CURSOR_API_KEY` |
-| Claude Code | `claude` | `claude --acp` | curl installer | `ANTHROPIC_API_KEY` |
-| Codex | `codex` | `codex acp` | npm | `OPENAI_API_KEY` |
-| OpenCode | `opencode` | `opencode acp` | curl installer | Provider-specific |
-| Cline | `cline` | `cline --acp` | npm | Provider-specific |
-| KiloCode | `kilo` | `kilo acp` | binary (musl) | Provider-specific |
-| Mock | `python3` | `python3 /opt/agent/mock-acp-server.py` | Python stdlib | None |
+| Cursor | `agent` + `cursor-agent-acp` | `cursor-agent-acp` | Adapter (@blowmage/cursor-agent-acp) | `CURSOR_API_KEY` |
+| Claude Code | `claude` + `claude-agent-acp` | `claude-agent-acp` | Adapter (@agentclientprotocol/claude-agent-acp) | `ANTHROPIC_API_KEY` |
+| Codex | `codex` + `codex-acp` | `codex-acp` | Adapter (@zed-industries/codex-acp) | `OPENAI_API_KEY` |
+| OpenCode | `opencode` | `opencode acp` | Native | Provider-specific |
+| Cline | `cline` | `cline --acp` | Native (partial) | Provider-specific |
+| KiloCode | `kilo` | `kilo acp` | Native | Provider-specific |
+| Mock | `python3` | `python3 /opt/agent/mock-acp-server.py` | Custom | None |
 
 ## Shared Scripts
 
@@ -30,51 +30,52 @@ All agents run inside the `litmus/runtime-python` Docker image. Each agent commu
 
 ## ACP Smoke Test Results (2026-04-03)
 
-| Agent | Version | ACP Handshake | Notes |
+| Agent | ACP Command | Handshake | Notes |
 |---|---|---|---|
-| Cursor | 2026.03.30 | ❌ `unknown option '--acp'` | ACP not yet in stable CLI |
-| Claude Code | 2.1.90 | ❌ `unknown option '--acp'` | ACP not yet in stable CLI |
-| Codex | 0.118.0 | ❌ `stdin is not a terminal` | No `acp` subcommand |
-| OpenCode | 1.3.13 | ✅ Handshake OK | `protocolVersion` must be numeric (1), not string |
-| Cline | 2.13.0 | ⚠️ Partial | Accepts `--acp`, validates params, but times out after handshake |
-| KiloCode | 7.1.20 | ✅ Handshake OK | `protocolVersion` must be numeric (1), not string |
-| Mock | 1.0.0 | ✅ Handshake OK | Always works (Python stdlib) |
+| Cursor | `cursor-agent-acp` | ⚠️ Starts, needs API key | Adapter finds binary, loads models, hangs on `status` without credentials |
+| Claude Code | `claude-agent-acp` | ✅ Handshake OK | Official adapter by ACP maintainers, v0.24.2 |
+| Codex | `codex-acp` | ✅ Handshake OK | Official adapter by Zed Industries, v0.11.1 |
+| OpenCode | `opencode acp` | ✅ Handshake OK | Native ACP, `protocolVersion` must be numeric (1) |
+| Cline | `cline --acp` | ⚠️ Partial | cline-acp adapter incompatible with cline v2.13 (`--output-format` flag removed) |
+| KiloCode | `kilo acp` | ✅ Handshake OK | Native ACP, `protocolVersion` must be numeric (1) |
+| Mock | `python3 .../mock-acp-server.py` | ✅ Handshake OK | Always works (Python stdlib) |
 
-**Currently onboardable via ACP:** OpenCode, KiloCode, Mock.
-**Pending ACP support in stable releases:** Cursor, Claude Code, Codex, Cline.
+**Fully onboardable (handshake confirmed):** Claude Code, Codex, OpenCode, KiloCode, Mock.
+**Needs API key to fully verify:** Cursor (adapter starts, binary found).
+**Pending adapter fix:** Cline (cline-acp v0.1.6 incompatible with cline CLI v2.13).
 
 ## Per-Agent Quirks
 
 ### Cursor
-- Binary is `agent`, not `cursor` (Cursor CLI installs as `agent`)
-- ACP command: `agent --acp` — **not yet supported** (v2026.03.30)
-- Stable CLI uses `agent --print` mode (non-ACP, stdout-based)
+- Binary is `agent`, not `cursor`; symlinked as `cursor-agent` for adapter
+- ACP via `cursor-agent-acp` adapter (@blowmage/cursor-agent-acp v0.7.1)
+- Adapter expects `cursor-agent` binary in PATH (symlink added in Dockerfile)
+- Needs `CURSOR_API_KEY` — adapter hangs on `cursor-agent status` without it
 
 ### Claude Code
-- ACP command: `claude --acp` — **not yet supported** (v2.1.90)
-- Installed via native curl installer (no Node.js dependency)
-- Requires `ANTHROPIC_API_KEY` for prompts
+- ACP via `claude-agent-acp` adapter (official, @agentclientprotocol/claude-agent-acp v0.24.2)
+- Uses Claude Agent SDK under the hood (not the `claude` CLI directly)
+- Handshake works without API key; prompts need `ANTHROPIC_API_KEY`
 
 ### Codex
-- ACP command: `codex acp` — **not yet supported** (v0.118.0)
-- Requires Node.js (installed via npm globally)
-- `OPENAI_API_KEY` required
+- ACP via `codex-acp` adapter (official, @zed-industries/codex-acp v0.11.1)
+- Supports `OPENAI_API_KEY` and `CODEX_API_KEY` env vars
+- Zero dependencies (4.5kB package) — thin wrapper over codex CLI
 
 ### OpenCode
-- ✅ ACP ready — `opencode acp` works
+- ✅ Native ACP — `opencode acp`
 - Runs one-time SQLite migration on first use (adds ~2s startup)
-- `protocolVersion` must be numeric (`1`), not string (`"2025-11-16"`)
-- Installed via native curl installer to `~/.opencode/bin/`
+- `protocolVersion` must be numeric (`1`), not string
+- Installed to `~/.opencode/bin/`, symlinked to `/usr/local/bin/`
 
 ### Cline
-- ACP command: `cline --acp` — **partial support** (v2.13.0)
-- Accepts ACP mode, validates JSON-RPC params, but times out after init
-- `protocolVersion` must be numeric
-- Requires Node.js 20+
+- Native `cline --acp` partially works but times out after param validation
+- `cline-acp` adapter (v0.1.6) incompatible with cline CLI v2.13 (`--output-format` flag removed)
+- **Blocked** until either cline native ACP stabilizes or cline-acp is updated
 
 ### KiloCode
-- ✅ ACP ready — `kilo acp` works
-- Uses pre-built glibc binary (not musl — Debian-based image needs glibc)
+- ✅ Native ACP — `kilo acp`
+- Uses pre-built glibc binary (Debian-based image)
 - Runs one-time SQLite migration on first use (adds ~2s startup)
 - `protocolVersion` must be numeric (`1`), not string
 
