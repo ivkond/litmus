@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { PassThrough } from 'stream';
 import { Scheduler } from '../scheduler';
 import { InMemoryEventBus } from '../event-bus';
 import { Reconciler } from '../reconciler';
-import type { AgentExecutor, ExecutorHandle, RunConfig, RunEvent } from '../types';
+import type { AgentExecutor, ExecutorHandle, InteractiveHandle, RunConfig, RunEvent } from '../types';
 
 const dbMocks = vi.hoisted(() => {
   const insertedRows: unknown[] = [];
@@ -67,6 +68,35 @@ vi.mock('@/db/schema', () => ({
   runResults: { name: 'runResults' },
 }));
 
+function createMockInteractiveHandle(opts?: {
+  exitCode?: number;
+  stdout?: string;
+  stderr?: string;
+}): InteractiveHandle {
+  const stdin = new PassThrough();
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+  const exitCode = opts?.exitCode ?? 0;
+
+  process.nextTick(() => {
+    if (opts?.stdout) stdout.write(opts.stdout);
+    if (opts?.stderr) stderr.write(opts.stderr);
+    stdout.end();
+    stderr.end();
+  });
+
+  return {
+    stdin,
+    stdout,
+    stderr,
+    wait: async () => {
+      await new Promise<void>((resolve) => stdout.on('end', resolve));
+      return exitCode;
+    },
+    kill: async () => {},
+  };
+}
+
 function createMockExecutor(): AgentExecutor & { calls: string[] } {
   const calls: string[] = [];
   return {
@@ -76,10 +106,10 @@ function createMockExecutor(): AgentExecutor & { calls: string[] } {
       calls.push('start');
       return { containerId: 'mock-container' } as ExecutorHandle;
     },
-    async exec(_handle, cmd) {
+    async exec(_handle: ExecutorHandle, cmd: string[], _options?: { timeoutMs?: number; env?: Record<string, string> }) {
       const cmdStr = cmd.join(' ');
       calls.push(`exec: ${cmdStr}`);
-      return { exitCode: 0, stdout: 'ok', stderr: '' };
+      return createMockInteractiveHandle({ exitCode: 0, stdout: 'ok', stderr: '' });
     },
     async stop() {
       calls.push('stop');
@@ -130,11 +160,11 @@ describe('Scheduler', () => {
     taskIds: new Map([['e1:m1:s1', 'task-uuid-1']]),
     lanes: [
       {
-        agent: { id: 'a1', slug: 'mock', name: 'Mock' },
+        agent: { id: 'a1', slug: 'mock', type: 'mock', name: 'Mock' },
         model: { id: 'm1', name: 'gpt-4o', externalId: 'gpt-4o' },
         executorId: 'e1',
         scenarios: [
-          { id: 's1', slug: '1-trivial-pass', promptPath: '1-trivial-pass/prompt.txt', language: 'python' },
+          { id: 's1', slug: '1-trivial-pass', prompt: 'Implement the required functionality.', language: 'python' },
         ],
       },
     ],
@@ -245,11 +275,11 @@ describe('Scheduler error paths', () => {
     taskIds: new Map([['e1:m1:s1', 'task-uuid-1']]),
     lanes: [
       {
-        agent: { id: 'a1', slug: 'mock', name: 'Mock' },
+        agent: { id: 'a1', slug: 'mock', type: 'mock', name: 'Mock' },
         model: { id: 'm1', name: 'gpt-4o', externalId: 'gpt-4o' },
         executorId: 'e1',
         scenarios: [
-          { id: 's1', slug: '1-trivial-pass', promptPath: '1-trivial-pass/prompt.txt', language: 'python' },
+          { id: 's1', slug: '1-trivial-pass', prompt: 'Implement the required functionality.', language: 'python' },
         ],
       },
     ],
@@ -270,9 +300,9 @@ describe('Scheduler error paths', () => {
       execCalls.push([...cmd]);
       const cmdStr = cmd.join(' ');
       if (cmdStr.includes('run.sh')) {
-        return { exitCode: 2, stdout: '', stderr: 'infra failure' };
+        return createMockInteractiveHandle({ exitCode: 2, stdout: '', stderr: 'infra failure' });
       }
-      return { exitCode: 0, stdout: 'ok', stderr: '' };
+      return createMockInteractiveHandle({ exitCode: 0, stdout: 'ok', stderr: '' });
     });
 
     const scheduler = new Scheduler(executor, reconciler, bus, './work');
@@ -322,9 +352,9 @@ describe('Scheduler error paths', () => {
       execCalls.push([...cmd]);
       const cmdStr = cmd.join(' ');
       if (cmdStr.includes('run.sh')) {
-        return { exitCode: 124, stdout: '', stderr: 'timed out' };
+        return createMockInteractiveHandle({ exitCode: 124, stdout: '', stderr: 'timed out' });
       }
-      return { exitCode: 0, stdout: 'ok', stderr: '' };
+      return createMockInteractiveHandle({ exitCode: 0, stdout: 'ok', stderr: '' });
     });
 
     const scheduler = new Scheduler(executor, reconciler, bus, './work');
@@ -349,9 +379,9 @@ describe('Scheduler error paths', () => {
       execCalls.push([...cmd]);
       const cmdStr = cmd.join(' ');
       if (cmdStr.includes('init.sh')) {
-        return { exitCode: 1, stdout: '', stderr: 'init failed' };
+        return createMockInteractiveHandle({ exitCode: 1, stdout: '', stderr: 'init failed' });
       }
-      return { exitCode: 0, stdout: 'ok', stderr: '' };
+      return createMockInteractiveHandle({ exitCode: 0, stdout: 'ok', stderr: '' });
     });
 
     const scheduler = new Scheduler(executor, reconciler, bus, './work');
@@ -371,9 +401,9 @@ describe('Scheduler error paths', () => {
       execCalls.push([...cmd]);
       const cmdStr = cmd.join(' ');
       if (cmdStr.includes('python.sh')) {
-        return { exitCode: 2, stdout: '', stderr: 'test harness crashed' };
+        return createMockInteractiveHandle({ exitCode: 2, stdout: '', stderr: 'test harness crashed' });
       }
-      return { exitCode: 0, stdout: 'ok', stderr: '' };
+      return createMockInteractiveHandle({ exitCode: 0, stdout: 'ok', stderr: '' });
     });
 
     const scheduler = new Scheduler(executor, reconciler, bus, './work');
@@ -414,7 +444,7 @@ describe('Scheduler cancel and concurrency', () => {
     // Make run.sh slow for the first lane so we can cancel mid-flight
     let execCallCount = 0;
     const originalExec = executor.exec.bind(executor);
-    executor.exec = async (handle: ExecutorHandle, cmd: string[], options?: { timeoutMs?: number }) => {
+    executor.exec = async (handle: ExecutorHandle, cmd: string[], options?: { timeoutMs?: number; env?: Record<string, string> }) => {
       const cmdStr = cmd.join(' ');
       if (cmdStr.includes('run.sh')) {
         execCallCount++;
@@ -437,16 +467,16 @@ describe('Scheduler cancel and concurrency', () => {
       ]),
       lanes: [
         {
-          agent: { id: 'a1', slug: 'agent1', name: 'Agent1' },
+          agent: { id: 'a1', slug: 'agent1', type: 'mock', name: 'Agent1' },
           model: { id: 'm1', name: 'model1', externalId: 'model1' },
           executorId: 'e1',
-          scenarios: [{ id: 's1', slug: '1-trivial-pass', promptPath: '1-trivial-pass/prompt.txt', language: 'python' }],
+          scenarios: [{ id: 's1', slug: '1-trivial-pass', prompt: 'Implement the required functionality.', language: 'python' }],
         },
         {
-          agent: { id: 'a2', slug: 'agent2', name: 'Agent2' },
+          agent: { id: 'a2', slug: 'agent2', type: 'mock', name: 'Agent2' },
           model: { id: 'm2', name: 'model2', externalId: 'model2' },
           executorId: 'e2',
-          scenarios: [{ id: 's1', slug: '1-trivial-pass', promptPath: '1-trivial-pass/prompt.txt', language: 'python' }],
+          scenarios: [{ id: 's1', slug: '1-trivial-pass', prompt: 'Implement the required functionality.', language: 'python' }],
         },
       ],
     };
@@ -489,7 +519,7 @@ describe('Scheduler cancel and concurrency', () => {
 
     // Make each lane take some time so we can observe concurrency ordering
     const originalExec = executor.exec.bind(executor);
-    executor.exec = async (handle: ExecutorHandle, cmd: string[], options?: { timeoutMs?: number }) => {
+    executor.exec = async (handle: ExecutorHandle, cmd: string[], options?: { timeoutMs?: number; env?: Record<string, string> }) => {
       const cmdStr = cmd.join(' ');
       if (cmdStr.includes('run.sh')) {
         await new Promise((resolve) => setTimeout(resolve, 50));
@@ -516,22 +546,22 @@ describe('Scheduler cancel and concurrency', () => {
       ]),
       lanes: [
         {
-          agent: { id: 'a1', slug: 'agent1', name: 'Agent1' },
+          agent: { id: 'a1', slug: 'agent1', type: 'mock', name: 'Agent1' },
           model: { id: 'm1', name: 'model1', externalId: 'model1' },
           executorId: 'e1',
-          scenarios: [{ id: 's1', slug: '1-trivial-pass', promptPath: '1-trivial-pass/prompt.txt', language: 'python' }],
+          scenarios: [{ id: 's1', slug: '1-trivial-pass', prompt: 'Implement the required functionality.', language: 'python' }],
         },
         {
-          agent: { id: 'a2', slug: 'agent2', name: 'Agent2' },
+          agent: { id: 'a2', slug: 'agent2', type: 'mock', name: 'Agent2' },
           model: { id: 'm2', name: 'model2', externalId: 'model2' },
           executorId: 'e2',
-          scenarios: [{ id: 's1', slug: '1-trivial-pass', promptPath: '1-trivial-pass/prompt.txt', language: 'python' }],
+          scenarios: [{ id: 's1', slug: '1-trivial-pass', prompt: 'Implement the required functionality.', language: 'python' }],
         },
         {
-          agent: { id: 'a3', slug: 'agent3', name: 'Agent3' },
+          agent: { id: 'a3', slug: 'agent3', type: 'mock', name: 'Agent3' },
           model: { id: 'm3', name: 'model3', externalId: 'model3' },
           executorId: 'e3',
-          scenarios: [{ id: 's1', slug: '1-trivial-pass', promptPath: '1-trivial-pass/prompt.txt', language: 'python' }],
+          scenarios: [{ id: 's1', slug: '1-trivial-pass', prompt: 'Implement the required functionality.', language: 'python' }],
         },
       ],
     };
@@ -576,10 +606,10 @@ describe('Scheduler cancel and concurrency', () => {
 
     // Lane 3 (model3) gets infra error on run.sh
     const originalExec = executor.exec.bind(executor);
-    executor.exec = async (handle: ExecutorHandle, cmd: string[], options?: { timeoutMs?: number }) => {
+    executor.exec = async (handle: ExecutorHandle, cmd: string[], options?: { timeoutMs?: number; env?: Record<string, string> }) => {
       const cmdStr = cmd.join(' ');
       if (cmdStr.includes('run.sh') && cmdStr.includes('model3')) {
-        return { exitCode: 2, stdout: '', stderr: 'infra failure' };
+        return createMockInteractiveHandle({ exitCode: 2, stdout: '', stderr: 'infra failure' });
       }
       return originalExec(handle, cmd, options);
     };
@@ -596,22 +626,22 @@ describe('Scheduler cancel and concurrency', () => {
       ]),
       lanes: [
         {
-          agent: { id: 'a1', slug: 'agent1', name: 'Agent1' },
+          agent: { id: 'a1', slug: 'agent1', type: 'mock', name: 'Agent1' },
           model: { id: 'm1', name: 'model1', externalId: 'model1' },
           executorId: 'e1',
-          scenarios: [{ id: 's1', slug: '1-trivial-pass', promptPath: '1-trivial-pass/prompt.txt', language: 'python' }],
+          scenarios: [{ id: 's1', slug: '1-trivial-pass', prompt: 'Implement the required functionality.', language: 'python' }],
         },
         {
-          agent: { id: 'a2', slug: 'agent2', name: 'Agent2' },
+          agent: { id: 'a2', slug: 'agent2', type: 'mock', name: 'Agent2' },
           model: { id: 'm2', name: 'model2', externalId: 'model2' },
           executorId: 'e2',
-          scenarios: [{ id: 's1', slug: '1-trivial-pass', promptPath: '1-trivial-pass/prompt.txt', language: 'python' }],
+          scenarios: [{ id: 's1', slug: '1-trivial-pass', prompt: 'Implement the required functionality.', language: 'python' }],
         },
         {
-          agent: { id: 'a3', slug: 'agent3', name: 'Agent3' },
+          agent: { id: 'a3', slug: 'agent3', type: 'mock', name: 'Agent3' },
           model: { id: 'm3', name: 'model3', externalId: 'model3' },
           executorId: 'e3',
-          scenarios: [{ id: 's1', slug: '1-trivial-pass', promptPath: '1-trivial-pass/prompt.txt', language: 'python' }],
+          scenarios: [{ id: 's1', slug: '1-trivial-pass', prompt: 'Implement the required functionality.', language: 'python' }],
         },
       ],
     };

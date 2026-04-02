@@ -15,6 +15,8 @@ import type {
 } from './types';
 import type { Reconciler } from './reconciler';
 import type { EventBus } from './event-bus';
+import { collect } from './collect';
+import { resolveAgentHostDirForDocker, resolveSharedScriptsDirForDocker, resolveWorkHostDirForDocker } from './docker-bind-paths';
 
 export class Scheduler {
   private cancelled = false;
@@ -135,15 +137,17 @@ export class Scheduler {
     let nextScenarioIndex = 0;
 
     try {
-      const agentHostDir = this.resolveAgentHostDir(lane.agent.slug);
-      const workHostDir = this.resolveWorkHostDir();
+      const agentHostDir = resolveAgentHostDirForDocker(lane.agent.type);
+      const sharedScriptsDir = resolveSharedScriptsDirForDocker();
+      const workHostDir = resolveWorkHostDirForDocker();
 
       handle = await this.executor.start({
         image: 'litmus/runtime-python',
         agentHostDir,
+        sharedScriptsDir,
         workHostDir,
         runId: config.runId,
-        env: {},
+        env: lane.env ?? {},
         labels: {
           'litmus.managed': 'true',
           'litmus.run-id': config.runId,
@@ -216,7 +220,7 @@ export class Scheduler {
   private async executeScenario(
     config: RunConfig,
     lane: LaneConfig,
-    scenario: { id: string; slug: string; promptPath: string; language: string },
+    scenario: { id: string; slug: string; prompt: string; language: string },
     handle: ExecutorHandle,
   ): Promise<'completed' | 'failed' | 'error'> {
     const sessionDir = `/work/runs/${config.runId}/${lane.agent.slug}/${lane.model.name}/${scenario.slug}`;
@@ -253,8 +257,8 @@ export class Scheduler {
         : undefined;
 
       // init.sh — prepare workspace (subject to same step timeout)
-      const initResult = await this.executor.exec(handle, [
-        '/opt/agent/../init.sh',
+      const initResult = await collect(this.executor, handle, [
+        '/opt/shared/init.sh',
         '--scenario', scenarioStagedPath,
         '--workspace', sessionDir,
       ], stepTimeout);
@@ -273,14 +277,7 @@ export class Scheduler {
         return 'error';
       }
 
-      // Read prompt from staged scenario
-      let prompt: string;
-      try {
-        const localPromptPath = path.join(this.workRoot, 'runs', config.runId, '_scenarios', scenario.slug, 'prompt.txt');
-        prompt = await fs.readFile(localPromptPath, 'utf-8');
-      } catch {
-        prompt = 'Implement the required functionality to make all tests pass.';
-      }
+      const prompt = scenario.prompt;
 
       // Retry loop: maxAttempts = 1 + maxRetries
       let evalResult: EvalResult | null = null;
@@ -291,7 +288,7 @@ export class Scheduler {
           ? prompt
           : this.buildRetryPrompt(prompt, evalResult?.testOutput ?? '');
 
-        const agentResult = await this.executor.exec(handle, [
+        const agentResult = await collect(this.executor, handle, [
           '/opt/agent/run.sh',
           '--model', lane.model.externalId,
           '--prompt', currentPrompt,
@@ -311,7 +308,7 @@ export class Scheduler {
           return 'error';
         }
 
-        const testResult = await this.executor.exec(handle, [
+        const testResult = await collect(this.executor, handle, [
           testScript,
           '--workspace', sessionDir,
           '--output', `${sessionDir}/test-results.json`,
@@ -438,32 +435,29 @@ export class Scheduler {
   }
 
   private resolveTestScript(language: string): string {
-    const scripts: Record<string, string> = { python: '/opt/agent/../tests/python.sh' };
+    const scripts: Record<string, string> = { python: '/opt/shared/tests/python.sh' };
     return scripts[language] ?? scripts.python;
-  }
-
-  private resolveAgentHostDir(agentSlug: string): string {
-    const envDir = process.env.AGENTS_HOST_DIR;
-    if (envDir) return path.resolve(envDir, 'agents', agentSlug);
-    return path.resolve('./agents', agentSlug);
-  }
-
-  private resolveWorkHostDir(): string {
-    return process.env.WORK_HOST_DIR ?? path.resolve('./work');
   }
 
   private async stageScenario(runId: string, scenarioSlug: string): Promise<void> {
     const stageDir = path.join(this.workRoot, 'runs', runId, '_scenarios', scenarioSlug);
     await fs.mkdir(stageDir, { recursive: true });
 
-    const files = await listFiles(BUCKETS.scenarios, `${scenarioSlug}/`);
-    for (const key of files) {
-      const relativePath = key.slice(scenarioSlug.length + 1);
-      if (!relativePath) continue;
-      const targetPath = path.join(stageDir, relativePath);
-      await fs.mkdir(path.dirname(targetPath), { recursive: true });
-      const content = await downloadFile(BUCKETS.scenarios, key);
-      await fs.writeFile(targetPath, content);
+    // Download only project/* files from S3 (prompt/task/scoring are in DB now).
+    // S3 errors are non-fatal — project files are optional.
+    try {
+      const files = await listFiles(BUCKETS.scenarios, `${scenarioSlug}/`);
+      for (const key of files) {
+        const relativePath = key.slice(scenarioSlug.length + 1);
+        if (!relativePath) continue;
+        if (!relativePath.startsWith('project/')) continue;
+        const targetPath = path.join(stageDir, relativePath);
+        await fs.mkdir(path.dirname(targetPath), { recursive: true });
+        const content = await downloadFile(BUCKETS.scenarios, key);
+        await fs.writeFile(targetPath, content);
+      }
+    } catch (err) {
+      this.logBestEffortFailure(`S3 staging failed for "${scenarioSlug}" (project files may be missing)`, err);
     }
   }
 
