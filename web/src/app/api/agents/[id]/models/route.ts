@@ -3,8 +3,13 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { agents, agentExecutors, models } from '@/db/schema';
 import { DockerExecutor } from '@/lib/orchestrator/docker-executor';
+import {
+  resolveAgentHostDirForDocker,
+  resolveWorkHostDirForDocker,
+} from '@/lib/orchestrator/docker-bind-paths';
 import { env } from '@/lib/env';
-import path from 'path';
+import { getDecryptedSecretsForExecutor } from '@/lib/agents/secrets';
+import { collect } from '@/lib/orchestrator/collect';
 
 interface DiscoveredModel {
   id: string;
@@ -35,30 +40,40 @@ export async function POST(
 
   const docker = new DockerExecutor(env.DOCKER_HOST);
 
-  const agentHostDir = env.AGENTS_HOST_DIR
-    ? path.resolve(env.AGENTS_HOST_DIR, 'agents', executor.agentSlug)
-    : path.resolve('./agents', executor.agentSlug);
-  const workHostDir = env.WORK_HOST_DIR ?? path.resolve('./work');
+  const agentHostDir = resolveAgentHostDirForDocker(executor.agentType);
+  const workHostDir = resolveWorkHostDirForDocker();
+
+  const secrets = await getDecryptedSecretsForExecutor(executor.id);
+  const configEnv = (executor.config as Record<string, string>) ?? {};
+  const mergedEnv = { ...configEnv, ...secrets };
 
   const handle = await docker.start({
     image: 'litmus/runtime-python',
     agentHostDir,
     workHostDir,
     runId: 'model-discovery',
-    env: (executor.config as Record<string, string>) ?? {},
+    env: mergedEnv,
   });
 
   try {
-    const result = await docker.exec(handle, ['/opt/agent/models.sh']);
+    const result = await collect(docker, handle, ['/opt/agent/models.sh']);
 
     if (result.exitCode !== 0) {
       return NextResponse.json(
-        { error: `models.sh failed: ${result.stderr}` },
+        {
+          error: `models.sh failed (exit ${result.exitCode})`,
+          stderr: result.stderr || null,
+          stdout: result.stdout || null,
+        },
         { status: 500 },
       );
     }
 
-    const discovered: DiscoveredModel[] = JSON.parse(result.stdout);
+    // Strip ANSI escape sequences and non-printable chars that may leak from CLI output
+    const sanitized = result.stdout
+      .replace(/\x1b\[[0-9;]*[A-Za-z]/g, '')
+      .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '');
+    const discovered: DiscoveredModel[] = JSON.parse(sanitized);
     const availableModels = [];
 
     for (const m of discovered) {
