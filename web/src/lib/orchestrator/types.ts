@@ -3,7 +3,7 @@
 export interface AgentExecutor {
   type: 'docker' | 'host' | 'kubernetes';
   start(config: ExecutorConfig): Promise<ExecutorHandle>;
-  exec(handle: ExecutorHandle, cmd: string[], options?: ExecOptions): Promise<ExecResult>;
+  exec(handle: ExecutorHandle, cmd: string[], options?: ExecOptions): Promise<InteractiveHandle>;
   stop(handle: ExecutorHandle): Promise<void>;
   healthCheck(): Promise<boolean>;
 }
@@ -24,9 +24,52 @@ export interface ExecResult {
   stderr: string;
 }
 
+// ─── Interactive Handle (bidirectional process streams) ───────
+
+export interface InteractiveHandle {
+  stdin: import('stream').Writable;
+  stdout: import('stream').Readable;
+  stderr: import('stream').Readable;
+  /** Wait for process to finish, returns exit code */
+  wait(): Promise<number>;
+  /** Force-kill the process */
+  kill(): Promise<void>;
+}
+
+// ─── ACP Agent Result ─────────────────────────────────────────
+
+export interface AgentResult {
+  stopReason: 'end_turn' | 'max_tokens' | 'max_turn_requests' | 'refusal' | 'cancelled' | 'error';
+  content: string;
+  toolCalls: AgentToolCall[];
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    cachedReadTokens?: number;
+    cachedWriteTokens?: number;
+    thoughtTokens?: number;
+    durationMs: number;
+  };
+}
+
+export interface AgentToolCall {
+  name: string;
+  status: 'completed' | 'failed';
+  input: Record<string, unknown>;
+  output?: string;
+}
+
+export interface AcpAgentConfig {
+  acpCmd: string[];
+  requiresAuth: boolean;
+  capabilities?: Record<string, unknown>;
+}
+
 export interface ExecutorConfig {
   image: string;
   agentHostDir: string;
+  sharedScriptsDir?: string;
   workHostDir: string;
   runId: string;
   env: Record<string, string>;
@@ -196,8 +239,9 @@ export interface RunConfig {
 }
 
 export interface LaneConfig {
-  agent: { id: string; slug: string; name: string };
+  agent: { id: string; slug: string; type: string; name: string };
   model: { id: string; name: string; externalId: string };
   executorId: string;
-  scenarios: { id: string; slug: string; promptPath: string; language: string }[];
+  scenarios: { id: string; slug: string; prompt: string; language: string }[];
+  env?: Record<string, string>;
 }
