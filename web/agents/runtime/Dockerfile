@@ -33,6 +33,9 @@ RUN curl -fsSL https://opencode.ai/install | bash \
 # 5. Cline (https://docs.cline.bot) — npm package, requires Node 20+
 RUN npm install -g cline
 
+# acpx — ACP adapter layer for agents without native ACP support (https://github.com/openclaw/acpx)
+RUN npm install -g acpx@latest
+
 # 6. KiloCode (https://github.com/Kilo-Org/kilocode) — glibc binary (Debian-based image)
 RUN KILO_VERSION=$(curl -fsSL https://api.github.com/repos/Kilo-Org/kilocode/releases/latest | grep -oP '"tag_name":\s*"\K[^"]+') \
     && curl -fsSL "https://github.com/Kilo-Org/kilocode/releases/download/${KILO_VERSION}/kilo-linux-x64.tar.gz" \

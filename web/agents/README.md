@@ -90,6 +90,14 @@ All agents run inside the `litmus/runtime-python` Docker image. Each agent commu
 docker compose build litmus-runtime-python
 ```
 
+## acpx
+
+[acpx](https://github.com/openclaw/acpx) (v0.4.0) is installed as a headless ACP CLI client for manual testing and debugging. It provides session persistence, queue-based IPC, and auto-reconnect on top of ACP.
+
+**Usage:** `acpx <agent> "prompt"` or `acpx --agent <command> "prompt"`
+
+Note: acpx is an ACP **consumer** (like our `AcpSession`), not an adapter. Agents must natively support ACP. It auto-downloads community adapter packages (e.g. `claude-agent-acp`, `codex-acp`) on first use if available.
+
 ## ACP Integration
 
 The orchestrator uses `AcpSession` (`src/lib/orchestrator/acp-session.ts`) to manage ACP connections per lane. The `resolveAcpConfig` method in `scheduler.ts` maps `agentType` → ACP launch command.
