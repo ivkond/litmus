@@ -55,7 +55,15 @@ export class AcpSession {
         sessionUpdate: async (notification: acp.SessionNotification) => {
           session.handleSessionUpdate(notification);
         },
-        requestPermission: async () => ({ outcome: 'allowed' as const }),
+        requestPermission: async (params: acp.RequestPermissionRequest) => {
+          // Auto-approve in headless mode: select the first option
+          const firstOption = params.options?.[0];
+          return {
+            outcome: firstOption
+              ? { outcome: 'selected' as const, optionId: firstOption.optionId }
+              : { outcome: 'cancelled' as const },
+          } satisfies acp.RequestPermissionResponse;
+        },
       };
     }, stream);
 
