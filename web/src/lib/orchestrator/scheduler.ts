@@ -40,7 +40,7 @@ export class Scheduler {
       'opencode': { acpCmd: ['opencode', 'acp'], requiresAuth: true },
       'cline': { acpCmd: ['cline', '--acp'], requiresAuth: true },
       'kilocode': { acpCmd: ['kilo', 'acp'], requiresAuth: true },
-      'cursor': { acpCmd: ['cursor', 'agent', '--acp'], requiresAuth: true },
+      'cursor': { acpCmd: ['agent', '--acp'], requiresAuth: true },
       'mock': { acpCmd: ['python3', '/opt/agent/mock-acp-server.py'], requiresAuth: false },
     };
     const config = configs[agentType];
