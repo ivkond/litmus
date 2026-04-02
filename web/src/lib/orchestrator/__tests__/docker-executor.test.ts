@@ -97,12 +97,13 @@ describe('DockerExecutor', () => {
   });
 });
 
-describe('DockerExecutor - command execution', () => {
+describe('DockerExecutor - exec returns InteractiveHandle', () => {
   let dockerExecutor: DockerExecutor;
 
-  function setupCommandMock(opts: { exitCode?: number; stdout?: string; stderr?: string; hang?: boolean }) {
-    const mockStream = new EventEmitter() as EventEmitter & { destroy: ReturnType<typeof vi.fn> };
+  function setupExecMock(opts: { exitCode?: number; stdout?: string; stderr?: string }) {
+    const mockStream = new EventEmitter() as EventEmitter & { destroy: ReturnType<typeof vi.fn>; write: ReturnType<typeof vi.fn> };
     mockStream.destroy = vi.fn();
+    mockStream.write = vi.fn();
 
     const mockDockerExec = {
       start: vi.fn().mockResolvedValue(mockStream),
@@ -110,16 +111,13 @@ describe('DockerExecutor - command execution', () => {
     };
     mockContainer.exec.mockResolvedValue(mockDockerExec);
 
-    // demuxStream: push data to stdout/stderr PassThrough, then emit 'end'
     mockContainer.modem.demuxStream.mockImplementation(
       (_stream: unknown, outStream: NodeJS.WritableStream, errStream: NodeJS.WritableStream) => {
-        if (!opts.hang) {
-          process.nextTick(() => {
-            if (opts.stdout) outStream.write(Buffer.from(opts.stdout));
-            if (opts.stderr) errStream.write(Buffer.from(opts.stderr));
-            process.nextTick(() => mockStream.emit('end'));
-          });
-        }
+        process.nextTick(() => {
+          if (opts.stdout) outStream.write(Buffer.from(opts.stdout));
+          if (opts.stderr) errStream.write(Buffer.from(opts.stderr));
+          process.nextTick(() => mockStream.emit('end'));
+        });
       },
     );
 
@@ -131,68 +129,76 @@ describe('DockerExecutor - command execution', () => {
     dockerExecutor = new DockerExecutor('tcp://localhost:2375');
   });
 
-  it('runs a command and returns stdout, stderr, and exitCode', async () => {
-    setupCommandMock({ exitCode: 0, stdout: 'hello world', stderr: '' });
+  it('returns InteractiveHandle with stdin, stdout, stderr, wait, kill', async () => {
+    setupExecMock({ exitCode: 0, stdout: 'hello', stderr: '' });
 
-    const handle = await dockerExecutor.start({
+    const containerHandle = await dockerExecutor.start({
       image: 'litmus/runtime-python', agentHostDir: '/a', workHostDir: '/w', runId: 'r1', env: {},
     });
-    const result = await dockerExecutor.exec(handle, ['echo', 'hello']);
+    const ih = await dockerExecutor.exec(containerHandle, ['echo', 'hello']);
 
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout).toBe('hello world');
-    expect(mockContainer.exec).toHaveBeenCalledWith(
-      expect.objectContaining({ Cmd: ['echo', 'hello'], AttachStdout: true, AttachStderr: true }),
-    );
+    expect(ih).toHaveProperty('stdin');
+    expect(ih).toHaveProperty('stdout');
+    expect(ih).toHaveProperty('stderr');
+    expect(typeof ih.wait).toBe('function');
+    expect(typeof ih.kill).toBe('function');
   });
 
-  it('returns non-zero exitCode from a failed command', async () => {
-    setupCommandMock({ exitCode: 1, stdout: '', stderr: 'error msg' });
+  it('stdout stream receives command output', async () => {
+    setupExecMock({ exitCode: 0, stdout: 'hello world', stderr: '' });
 
-    const handle = await dockerExecutor.start({
+    const containerHandle = await dockerExecutor.start({
       image: 'litmus/runtime-python', agentHostDir: '/a', workHostDir: '/w', runId: 'r1', env: {},
     });
-    const result = await dockerExecutor.exec(handle, ['false']);
+    const ih = await dockerExecutor.exec(containerHandle, ['echo', 'hello']);
 
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toBe('error msg');
+    const chunks: Buffer[] = [];
+    ih.stdout.on('data', (chunk: Buffer) => chunks.push(chunk));
+    await ih.wait();
+
+    expect(Buffer.concat(chunks).toString('utf-8')).toBe('hello world');
   });
 
-  it('passes env vars to the docker exec call', async () => {
-    setupCommandMock({ exitCode: 0, stdout: '', stderr: '' });
+  it('wait() returns exit code from Docker inspect', async () => {
+    setupExecMock({ exitCode: 42, stdout: '', stderr: '' });
 
-    const handle = await dockerExecutor.start({
+    const containerHandle = await dockerExecutor.start({
       image: 'litmus/runtime-python', agentHostDir: '/a', workHostDir: '/w', runId: 'r1', env: {},
     });
-    await dockerExecutor.exec(handle, ['run.sh'], { env: { FOO: 'bar' } });
+    const ih = await dockerExecutor.exec(containerHandle, ['exit', '42']);
+
+    const exitCode = await ih.wait();
+    expect(exitCode).toBe(42);
+  });
+
+  it('passes env vars to Docker exec', async () => {
+    setupExecMock({ exitCode: 0, stdout: '', stderr: '' });
+
+    const containerHandle = await dockerExecutor.start({
+      image: 'litmus/runtime-python', agentHostDir: '/a', workHostDir: '/w', runId: 'r1', env: {},
+    });
+    await dockerExecutor.exec(containerHandle, ['run.sh'], { env: { FOO: 'bar' } });
 
     expect(mockContainer.exec).toHaveBeenCalledWith(
       expect.objectContaining({ Env: ['FOO=bar'] }),
     );
   });
 
-  it('returns exit 124 and destroys stream on timeout', async () => {
-    const { mockStream } = setupCommandMock({ hang: true });
+  it('creates exec with AttachStdin for bidirectional communication', async () => {
+    setupExecMock({ exitCode: 0, stdout: '', stderr: '' });
 
-    // Also mock the kill command for cleanup
-    const killStream = new EventEmitter();
-    const mockKillDockerExec = { start: vi.fn().mockResolvedValue(killStream) };
-    mockContainer.exec.mockResolvedValueOnce({
-      start: vi.fn().mockResolvedValue(mockStream),
-      inspect: vi.fn(),
-    }).mockResolvedValueOnce(mockKillDockerExec);
-
-    // End the kill stream immediately
-    setTimeout(() => killStream.emit('end'), 10);
-
-    const handle = await dockerExecutor.start({
+    const containerHandle = await dockerExecutor.start({
       image: 'litmus/runtime-python', agentHostDir: '/a', workHostDir: '/w', runId: 'r1', env: {},
     });
-    const result = await dockerExecutor.exec(handle, ['sleep', '999'], { timeoutMs: 50 });
+    await dockerExecutor.exec(containerHandle, ['cat']);
 
-    expect(result.exitCode).toBe(124);
-    expect(result.stderr).toContain('timed out');
-    expect(mockStream.destroy).toHaveBeenCalled();
+    expect(mockContainer.exec).toHaveBeenCalledWith(
+      expect.objectContaining({
+        AttachStdin: true,
+        AttachStdout: true,
+        AttachStderr: true,
+      }),
+    );
   });
 
   it('cleans up orphan containers on cleanupOrphans()', async () => {

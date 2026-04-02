@@ -1,6 +1,6 @@
 import Dockerode from 'dockerode';
 import { PassThrough } from 'stream';
-import type { AgentExecutor, ExecutorConfig, ExecutorHandle, ExecResult, ExecOptions } from './types';
+import type { AgentExecutor, ExecutorConfig, ExecutorHandle, InteractiveHandle, ExecOptions } from './types';
 
 interface ContainerHandle extends ExecutorHandle {
   container: Dockerode.Container;
@@ -28,6 +28,7 @@ export class DockerExecutor implements AgentExecutor {
       HostConfig: {
         Binds: [
           `${config.agentHostDir}:/opt/agent:ro`,
+          ...(config.sharedScriptsDir ? [`${config.sharedScriptsDir}:/opt/shared:ro`] : []),
           `${config.workHostDir}:/work`,
         ],
         NetworkMode: config.network ?? 'litmus-agents',
@@ -39,64 +40,48 @@ export class DockerExecutor implements AgentExecutor {
     return { containerId: container.id, container };
   }
 
-  async exec(handle: ExecutorHandle, cmd: string[], options?: ExecOptions): Promise<ExecResult> {
+  async exec(handle: ExecutorHandle, cmd: string[], options?: ExecOptions): Promise<InteractiveHandle> {
     const { container } = handle as ContainerHandle;
     const env = options?.env;
-    const timeoutMs = options?.timeoutMs;
 
     const dockerExec = await container.exec({
       Cmd: cmd,
       Env: env ? Object.entries(env).map(([k, v]) => `${k}=${v}`) : undefined,
+      AttachStdin: true,
       AttachStdout: true,
       AttachStderr: true,
     });
 
-    const stream = await dockerExec.start({});
+    const stream = await dockerExec.start({ hijack: true, stdin: true });
 
-    const stdout: Buffer[] = [];
-    const stderr: Buffer[] = [];
+    const stdout = new PassThrough();
+    const stderr = new PassThrough();
 
-    const streamPromise = new Promise<void>((resolve, reject) => {
-      const outStream = new PassThrough();
-      const errStream = new PassThrough();
-
-      container.modem.demuxStream(stream, outStream, errStream);
-
-      outStream.on('data', (chunk: Buffer) => stdout.push(chunk));
-      errStream.on('data', (chunk: Buffer) => stderr.push(chunk));
-      stream.on('end', resolve);
-      stream.on('error', reject);
+    container.modem.demuxStream(stream, stdout, stderr);
+    stream.on('end', () => {
+      stdout.end();
+      stderr.end();
     });
 
-    if (timeoutMs && timeoutMs > 0) {
-      const timeout = new Promise<'timeout'>((resolve) => {
-        setTimeout(() => resolve('timeout'), timeoutMs);
-      });
-      const race = await Promise.race([
-        streamPromise.then(() => 'done' as const),
-        timeout,
-      ]);
-      if (race === 'timeout') {
-        stream.destroy();
-        // Kill orphaned exec processes inside the container.
-        // PID 1 (sleep infinity) is protected from SIGKILL by the Linux kernel
-        // in Docker's default config, so the container survives.
-        await this.killOrphanedProcesses(container);
-        return {
-          exitCode: 124,
-          stdout: Buffer.concat(stdout).toString('utf-8'),
-          stderr: `Command timed out after ${timeoutMs}ms`,
-        };
-      }
-    } else {
-      await streamPromise;
-    }
+    const stdinProxy = new PassThrough();
+    stdinProxy.pipe(stream);
 
-    const info = await dockerExec.inspect();
     return {
-      exitCode: info.ExitCode ?? 1,
-      stdout: Buffer.concat(stdout).toString('utf-8'),
-      stderr: Buffer.concat(stderr).toString('utf-8'),
+      stdin: stdinProxy,
+      stdout,
+      stderr,
+      wait: async () => {
+        await new Promise<void>((resolve) => {
+          stream.on('end', resolve);
+          stream.on('error', resolve);
+        });
+        const info = await dockerExec.inspect();
+        return info.ExitCode ?? 1;
+      },
+      kill: async () => {
+        stream.destroy();
+        await this.killOrphanedProcesses(container);
+      },
     };
   }
 
