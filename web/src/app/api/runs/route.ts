@@ -9,6 +9,8 @@ import { runEventBus } from '@/lib/orchestrator/event-bus';
 import { env } from '@/lib/env';
 import { z } from 'zod';
 import type { LaneConfig } from '@/lib/orchestrator/types';
+import { getDecryptedSecretsForExecutor } from '@/lib/agents/secrets';
+import { loadAuthSchema } from '@/lib/agents/auth-schema';
 
 const createRunSchema = z.object({
   agents: z.array(z.object({
@@ -18,7 +20,7 @@ const createRunSchema = z.object({
   scenarios: z.array(z.string().uuid()).min(1),
   maxRetries: z.number().int().min(1).max(10).default(3),
   maxConcurrentLanes: z.number().int().min(1).max(10).default(3),
-  /** Per-step timeout in seconds (run.sh, test script). 0 = no timeout. */
+  /** Per-step timeout in seconds (ACP prompt, test script). 0 = no timeout. */
   stepTimeoutSeconds: z.number().int().min(0).max(3600).default(0),
 });
 
@@ -39,6 +41,7 @@ export async function POST(request: Request) {
   // All validation errors return 400 before touching the database.
   const lanes: LaneConfig[] = [];
   const taskInserts: Array<{ agentExecutorId: string; modelId: string; scenarioId: string }> = [];
+  const secretsCache = new Map<string, Record<string, string>>();
 
   for (const agentSel of agentSelections) {
     const [agent] = await db.select().from(agents).where(eq(agents.id, agentSel.id));
@@ -51,6 +54,26 @@ export async function POST(request: Request) {
     if (!agent || !executor || executor.type !== 'docker') {
       return NextResponse.json(
         { error: `Agent ${agentSel.id} has no docker executor` },
+        { status: 400 },
+      );
+    }
+
+    // Load & cache secrets per executor (merged with legacy executor.config)
+    if (!secretsCache.has(executor.id)) {
+      const secrets = await getDecryptedSecretsForExecutor(executor.id);
+      const configEnv = (executor.config as Record<string, string>) ?? {};
+      secretsCache.set(executor.id, { ...configEnv, ...secrets });
+    }
+    const mergedEnv = secretsCache.get(executor.id)!;
+
+    // Validate required secrets from auth.json
+    const schema = await loadAuthSchema(executor.agentType);
+    const missing = schema.authMethods
+      .filter((m) => m.required && m.type === 'api_key' && !mergedEnv[m.envVar])
+      .map((m) => m.envVar);
+    if (missing.length > 0) {
+      return NextResponse.json(
+        { error: `Agent "${agent.name}" is missing required secrets: ${missing.join(', ')}` },
         { status: 400 },
       );
     }
@@ -86,7 +109,7 @@ export async function POST(request: Request) {
         laneScenarios.push({
           id: scenario.id,
           slug: scenario.slug,
-          promptPath: `${scenario.slug}/prompt.txt`,
+          prompt: scenario.prompt ?? 'Implement the required functionality to make all tests pass.',
           language: scenario.language ?? 'python',
         });
       }
@@ -96,10 +119,11 @@ export async function POST(request: Request) {
       const externalId = agentModel?.externalId ?? model.name;
 
       lanes.push({
-        agent: { id: agent.id, slug: executor.agentSlug, name: agent.name },
+        agent: { id: agent.id, slug: executor.agentSlug, type: executor.agentType, name: agent.name },
         model: { id: model.id, name: model.name, externalId },
         executorId: executor.id,
         scenarios: laneScenarios,
+        env: mergedEnv,
       });
     }
   }

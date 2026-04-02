@@ -233,7 +233,7 @@ export interface RunConfig {
   lanes: LaneConfig[];
   maxRetries: number;
   maxConcurrentLanes: number;
-  /** Per-step timeout in seconds. 0 = no timeout (default). Applied to run.sh and test script exec calls. */
+  /** Per-step timeout in seconds. 0 = no timeout (default). Applied to ACP agent prompts (triggers session/cancel) and shell commands via collect (triggers kill + exit 124). */
   stepTimeoutSeconds: number;
   /** Map from composite key "executorId:modelId:scenarioId" → run_tasks.id (DB UUID) */
   taskIds: Map<string, string>;

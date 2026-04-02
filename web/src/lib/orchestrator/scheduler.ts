@@ -5,6 +5,7 @@ import { db } from '@/db';
 import { runs, runResults, runTasks } from '@/db/schema';
 import { refreshMatviews } from '@/lib/db/refresh-matviews';
 import { downloadFile, listFiles, BUCKETS } from '@/lib/s3';
+import { AcpSession } from './acp-session';
 import type {
   AgentExecutor,
   ExecutorHandle,
@@ -12,6 +13,8 @@ import type {
   LaneConfig,
   EvalResult,
   TaskMeta,
+  AcpAgentConfig,
+  AgentResult,
 } from './types';
 import type { Reconciler } from './reconciler';
 import type { EventBus } from './event-bus';
@@ -21,6 +24,7 @@ import { resolveAgentHostDirForDocker, resolveSharedScriptsDirForDocker, resolve
 export class Scheduler {
   private cancelled = false;
   private activeHandles = new Map<string, ExecutorHandle>();
+  private activeSessions = new Map<string, AcpSession>();
 
   constructor(
     private executor: AgentExecutor,
@@ -28,6 +32,23 @@ export class Scheduler {
     private bus: EventBus,
     private workRoot: string,
   ) {}
+
+  private resolveAcpConfig(agentType: string): AcpAgentConfig {
+    const configs: Record<string, AcpAgentConfig> = {
+      'claude-code': { acpCmd: ['claude', '--acp'], requiresAuth: true },
+      'codex': { acpCmd: ['codex', 'acp'], requiresAuth: true },
+      'opencode': { acpCmd: ['opencode', 'acp'], requiresAuth: true },
+      'cline': { acpCmd: ['cline', '--acp'], requiresAuth: true },
+      'kilocode': { acpCmd: ['kilo', 'acp'], requiresAuth: true },
+      'cursor': { acpCmd: ['cursor', 'agent', '--acp'], requiresAuth: true },
+      'mock': { acpCmd: ['python3', '/opt/agent/mock-acp-server.py'], requiresAuth: false },
+    };
+    const config = configs[agentType];
+    if (!config) {
+      throw new Error(`No ACP config for agent type "${agentType}". Known types: ${Object.keys(configs).join(', ')}`);
+    }
+    return config;
+  }
 
   async execute(config: RunConfig): Promise<void> {
     this.cancelled = false;
@@ -113,6 +134,12 @@ export class Scheduler {
 
   async cancel(runId: string): Promise<void> {
     this.cancelled = true;
+    // Cancel active ACP sessions first
+    for (const [, session] of this.activeSessions) {
+      try { await session.cancel(); } catch { /* best effort */ }
+    }
+    this.activeSessions.clear();
+    // Then stop containers
     for (const [, handle] of this.activeHandles) {
       try { await this.executor.stop(handle); } catch { /* best effort */ }
     }
@@ -134,6 +161,7 @@ export class Scheduler {
     const maxAttempts = config.maxRetries + 1;
 
     let handle: ExecutorHandle | null = null;
+    let acpSession: AcpSession | null = null;
     let nextScenarioIndex = 0;
 
     try {
@@ -157,14 +185,23 @@ export class Scheduler {
       });
       this.activeHandles.set(laneKey, handle);
 
+      // Start ACP session
+      const acpConfig = this.resolveAcpConfig(lane.agent.type);
+      acpSession = await AcpSession.start(this.executor, handle, acpConfig);
+      this.activeSessions.set(laneKey, acpSession);
+
       for (const scenario of lane.scenarios) {
         nextScenarioIndex = lane.scenarios.indexOf(scenario);
         if (this.cancelled) {
           results.cancelled += lane.scenarios.length - (results.completed + results.failed + results.error);
           break;
         }
-        const taskResult = await this.executeScenario(config, lane, scenario, handle);
-        results[taskResult]++;
+        const taskResult = await this.executeScenario(config, lane, scenario, handle, acpSession);
+        if (taskResult === 'cancelled') {
+          results.cancelled++;
+        } else {
+          results[taskResult]++;
+        }
       }
     } catch (reason) {
       const errorMessage = reason instanceof Error ? reason.message : String(reason);
@@ -189,6 +226,10 @@ export class Scheduler {
         results.error++;
       }
     } finally {
+      if (acpSession) {
+        try { await acpSession.close(); } catch { /* best effort */ }
+        this.activeSessions.delete(laneKey);
+      }
       if (handle) {
         try { await this.executor.stop(handle); } catch { /* best effort */ }
         this.activeHandles.delete(laneKey);
@@ -222,7 +263,8 @@ export class Scheduler {
     lane: LaneConfig,
     scenario: { id: string; slug: string; prompt: string; language: string },
     handle: ExecutorHandle,
-  ): Promise<'completed' | 'failed' | 'error'> {
+    acpSession: AcpSession,
+  ): Promise<'completed' | 'failed' | 'error' | 'cancelled'> {
     const sessionDir = `/work/runs/${config.runId}/${lane.agent.slug}/${lane.model.name}/${scenario.slug}`;
     const localSessionDir = path.join(this.workRoot, 'runs', config.runId, lane.agent.slug, lane.model.name, scenario.slug);
     const scenarioStagedPath = `/work/runs/${config.runId}/_scenarios/${scenario.slug}`;
@@ -277,6 +319,9 @@ export class Scheduler {
         return 'error';
       }
 
+      // Reset ACP session for this scenario (fresh session per scenario)
+      acpSession.resetSession();
+
       const prompt = scenario.prompt;
 
       // Retry loop: maxAttempts = 1 + maxRetries
@@ -288,17 +333,19 @@ export class Scheduler {
           ? prompt
           : this.buildRetryPrompt(prompt, evalResult?.testOutput ?? '');
 
-        const agentResult = await collect(this.executor, handle, [
-          '/opt/agent/run.sh',
-          '--model', lane.model.externalId,
-          '--prompt', currentPrompt,
-          '--workspace', sessionDir,
-          '--scenario-dir', scenarioStagedPath,
-        ], stepTimeout);
+        const agentResult = await acpSession.prompt({
+          text: currentPrompt,
+          cwd: sessionDir,
+          scenarioDir: scenarioStagedPath,
+          timeoutMs: stepTimeout?.timeoutMs,
+        });
 
-        // Exit 2 = infra error, 124 = timeout — both are non-retryable
-        if (this.isInfraError(agentResult.exitCode)) {
-          const msg = `run.sh ${this.infraErrorLabel(agentResult.exitCode)}: ${agentResult.stderr}`;
+        // Write telemetry file per attempt
+        await this.writeTelemetry(localSessionDir, attempt, agentResult);
+
+        // Error/stopReason-based detection (replaces exit code checks)
+        if (agentResult.stopReason === 'error' || agentResult.stopReason === 'refusal') {
+          const msg = `Agent ${agentResult.stopReason}: ${agentResult.content || 'no details'}`;
           this.bus.emit(config.runId, {
             type: 'task:error', runId: config.runId, taskId,
             agent: lane.agent.name, model: lane.model.name, scenario: scenario.slug,
@@ -307,6 +354,34 @@ export class Scheduler {
           await this.persistTaskError(buildErrorMeta(attempt), msg);
           return 'error';
         }
+
+        if (agentResult.stopReason === 'cancelled' && this.cancelled) {
+          // User-initiated cancel → emit task:cancelled
+          this.bus.emit(config.runId, {
+            type: 'task:cancelled', runId: config.runId, taskId,
+            agent: lane.agent.name, model: lane.model.name, scenario: scenario.slug,
+          });
+          await db.update(runTasks)
+            .set({ status: 'cancelled', finishedAt: new Date() })
+            .where(eq(runTasks.id, taskId))
+            .catch(() => {});
+          return 'cancelled';
+        }
+
+        if (agentResult.stopReason === 'cancelled' && !this.cancelled) {
+          // Timeout-triggered cancel → emit task:error
+          const msg = 'Agent timed out';
+          this.bus.emit(config.runId, {
+            type: 'task:error', runId: config.runId, taskId,
+            agent: lane.agent.name, model: lane.model.name, scenario: scenario.slug,
+            errorMessage: msg,
+          });
+          await this.persistTaskError(buildErrorMeta(attempt), msg);
+          return 'error';
+        }
+
+        // end_turn, max_tokens, max_turn_requests → proceed to test phase
+        // max_tokens is retryable because partial code may pass tests
 
         const testResult = await collect(this.executor, handle, [
           testScript,
@@ -422,6 +497,22 @@ export class Scheduler {
       .set({ status: 'error', finishedAt, errorMessage })
       .where(eq(runTasks.id, meta.taskId))
       .catch((reason) => this.logBestEffortFailure(`Failed to persist error status for task ${meta.taskId}`, reason));
+  }
+
+  /** Write ACP telemetry data per attempt for debugging and analysis */
+  private async writeTelemetry(sessionDir: string, attempt: number, result: AgentResult): Promise<void> {
+    try {
+      await fs.mkdir(sessionDir, { recursive: true });
+      const filePath = path.join(sessionDir, `acp-telemetry-attempt-${attempt}.json`);
+      await fs.writeFile(filePath, JSON.stringify({
+        attempt,
+        stopReason: result.stopReason,
+        usage: result.usage ?? null,
+        toolCalls: result.toolCalls,
+      }, null, 2));
+    } catch {
+      // Best-effort — don't block execution
+    }
   }
 
   /** Exit codes that signal non-retryable infrastructure failures */

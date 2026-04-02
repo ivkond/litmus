@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { PassThrough } from 'stream';
 import { Scheduler } from '../scheduler';
+import { AcpSession } from '../acp-session';
 import { InMemoryEventBus } from '../event-bus';
 import { Reconciler } from '../reconciler';
-import type { AgentExecutor, ExecutorHandle, InteractiveHandle, RunConfig, RunEvent } from '../types';
+import type { AgentExecutor, ExecutorHandle, InteractiveHandle, RunConfig, RunEvent, AgentResult } from '../types';
 
 const dbMocks = vi.hoisted(() => {
   const insertedRows: unknown[] = [];
@@ -44,6 +45,25 @@ const dbMocks = vi.hoisted(() => {
 });
 
 const refreshMatviewsMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+
+// Create a mock ACP session object that all tests share — must be hoisted
+const mockAcpSession = vi.hoisted(() => ({
+  prompt: vi.fn().mockResolvedValue({
+    stopReason: 'end_turn' as const,
+    content: 'Mock ACP response',
+    toolCalls: [],
+    usage: { inputTokens: 100, outputTokens: 50, totalTokens: 150, durationMs: 1000 },
+  }),
+  resetSession: vi.fn(),
+  cancel: vi.fn().mockResolvedValue(undefined),
+  close: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../acp-session', () => ({
+  AcpSession: {
+    start: vi.fn().mockResolvedValue(mockAcpSession),
+  },
+}));
 
 vi.mock('@/lib/s3', () => ({
   downloadFile: vi.fn().mockResolvedValue(Buffer.from('')),
@@ -146,6 +166,17 @@ function resetDbMocks() {
   refreshMatviewsMock.mockClear();
 }
 
+function resetAcpMocks() {
+  mockAcpSession.prompt.mockReset().mockResolvedValue({
+    stopReason: 'end_turn', content: 'Mock ACP response', toolCalls: [],
+    usage: { inputTokens: 100, outputTokens: 50, totalTokens: 150, durationMs: 1000 },
+  } satisfies AgentResult);
+  mockAcpSession.resetSession.mockReset();
+  mockAcpSession.cancel.mockReset().mockResolvedValue(undefined);
+  mockAcpSession.close.mockReset().mockResolvedValue(undefined);
+  (AcpSession.start as ReturnType<typeof vi.fn>).mockReset().mockResolvedValue(mockAcpSession);
+}
+
 describe('Scheduler', () => {
   let bus: InMemoryEventBus;
   let executor: ReturnType<typeof createMockExecutor>;
@@ -172,6 +203,7 @@ describe('Scheduler', () => {
 
   beforeEach(() => {
     resetDbMocks();
+    resetAcpMocks();
     bus = new InMemoryEventBus();
     executor = createMockExecutor();
     reconciler = createMockReconciler();
@@ -190,15 +222,19 @@ describe('Scheduler', () => {
     expect(types).toContain('run:completed');
   });
 
-  it('calls executor lifecycle: start → exec (init, run, test) → stop', async () => {
+  it('calls executor lifecycle: start → init via collect → AcpSession prompt → test via collect → stop', async () => {
     const scheduler = new Scheduler(executor, reconciler, bus, './work');
     await scheduler.execute(config);
 
     expect(executor.calls[0]).toBe('start');
     expect(executor.calls.some((c: string) => c.includes('init.sh'))).toBe(true);
-    expect(executor.calls.some((c: string) => c.includes('run.sh'))).toBe(true);
+    expect(executor.calls.some((c: string) => c.includes('run.sh'))).toBe(false); // No more run.sh!
     expect(executor.calls.some((c: string) => c.includes('python.sh'))).toBe(true);
     expect(executor.calls.at(-1)).toBe('stop');
+
+    expect(AcpSession.start).toHaveBeenCalled();
+    expect(mockAcpSession.prompt).toHaveBeenCalled();
+    expect(mockAcpSession.close).toHaveBeenCalled();
   });
 
   it('retries on test failure then succeeds', async () => {
@@ -287,6 +323,7 @@ describe('Scheduler error paths', () => {
 
   beforeEach(() => {
     resetDbMocks();
+    resetAcpMocks();
     bus = new InMemoryEventBus();
     executor = createMockExecutor();
     reconciler = createMockReconciler();
@@ -294,16 +331,10 @@ describe('Scheduler error paths', () => {
     bus.subscribe('run-1', (e) => events.push(e));
   });
 
-  it('emits task:error when run.sh returns infra error exit code 2', async () => {
-    const execCalls: string[][] = [];
-    vi.spyOn(executor, 'exec').mockImplementation(async (_handle, cmd) => {
-      execCalls.push([...cmd]);
-      const cmdStr = cmd.join(' ');
-      if (cmdStr.includes('run.sh')) {
-        return createMockInteractiveHandle({ exitCode: 2, stdout: '', stderr: 'infra failure' });
-      }
-      return createMockInteractiveHandle({ exitCode: 0, stdout: 'ok', stderr: '' });
-    });
+  it('emits task:error when AcpSession.prompt returns error stopReason', async () => {
+    mockAcpSession.prompt.mockResolvedValueOnce({
+      stopReason: 'error', content: 'internal failure', toolCalls: [],
+    } satisfies AgentResult);
 
     const scheduler = new Scheduler(executor, reconciler, bus, './work');
     await scheduler.execute(config);
@@ -311,22 +342,48 @@ describe('Scheduler error paths', () => {
     const types = events.map((e) => e.type);
     expect(types).toContain('task:error');
     expect(types).not.toContain('task:completed');
-    expect(types).not.toContain('task:failed');
+  });
+
+  it('emits task:error on refusal and does not retry', async () => {
+    mockAcpSession.prompt.mockResolvedValueOnce({
+      stopReason: 'refusal', content: 'I cannot do that.', toolCalls: [],
+    } satisfies AgentResult);
+
+    const scheduler = new Scheduler(executor, reconciler, bus, './work');
+    await scheduler.execute(config);
 
     const taskError = events.find((e) => e.type === 'task:error');
-    expect(taskError).toHaveProperty('errorMessage', expect.stringContaining('infra error'));
-    expect(dbMocks.insertedRows).toContainEqual(expect.objectContaining({
-      runId: 'run-1',
-      agentId: 'a1',
-      modelId: 'm1',
-      scenarioId: 's1',
-      status: 'error',
-      errorMessage: expect.stringContaining('infra error'),
-    }));
-    expect(dbMocks.onConflictDoNothingMock).toHaveBeenCalled();
+    expect(taskError).toBeDefined();
+    expect(taskError).toHaveProperty('errorMessage', expect.stringContaining('refusal'));
+    expect(mockAcpSession.prompt).toHaveBeenCalledTimes(1);
+  });
 
-    const runCompleted = events.find((e) => e.type === 'run:completed');
-    expect(runCompleted).toHaveProperty('errorTasks', 1);
+  it('retries on max_tokens then succeeds', async () => {
+    let callCount = 0;
+    mockAcpSession.prompt.mockImplementation(async () => {
+      callCount++;
+      return callCount === 1
+        ? { stopReason: 'max_tokens' as const, content: 'partial', toolCalls: [] }
+        : { stopReason: 'end_turn' as const, content: 'done', toolCalls: [] };
+    });
+
+    // First attempt: max_tokens → tests fail (partial code). Second attempt: end_turn → tests pass.
+    let evalCount = 0;
+    vi.spyOn(reconciler, 'evaluate').mockImplementation(async () => {
+      evalCount++;
+      if (evalCount === 1) {
+        return { allPassed: false, testsPassed: 1, testsTotal: 3, totalScore: 33, testOutput: 'partial fail', details: [] };
+      }
+      return { allPassed: true, testsPassed: 3, testsTotal: 3, totalScore: 100, testOutput: '{}', details: [] };
+    });
+
+    const scheduler = new Scheduler(executor, reconciler, bus, './work');
+    await scheduler.execute(config);
+
+    const types = events.map((e) => e.type);
+    expect(types).toContain('task:completed');
+    // prompt called once per attempt; first attempt max_tokens → tests fail → retry → second attempt succeeds
+    expect(mockAcpSession.prompt).toHaveBeenCalledTimes(2);
   });
 
   it('persists error rows for remaining scenarios when lane bootstrap fails', async () => {
@@ -346,34 +403,18 @@ describe('Scheduler error paths', () => {
     expect(refreshMatviewsMock).toHaveBeenCalledTimes(1);
   });
 
-  it('emits task:error with timeout message on exit code 124 and does not retry', async () => {
-    const execCalls: string[][] = [];
-    vi.spyOn(executor, 'exec').mockImplementation(async (_handle, cmd) => {
-      execCalls.push([...cmd]);
-      const cmdStr = cmd.join(' ');
-      if (cmdStr.includes('run.sh')) {
-        return createMockInteractiveHandle({ exitCode: 124, stdout: '', stderr: 'timed out' });
-      }
-      return createMockInteractiveHandle({ exitCode: 0, stdout: 'ok', stderr: '' });
-    });
+  it('emits task:error for remaining scenarios when AcpSession.start fails', async () => {
+    (AcpSession.start as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('binary not found'));
 
     const scheduler = new Scheduler(executor, reconciler, bus, './work');
     await scheduler.execute(config);
 
     const taskError = events.find((e) => e.type === 'task:error');
     expect(taskError).toBeDefined();
-    expect(taskError).toHaveProperty('errorMessage', expect.stringContaining('timeout'));
-
-    // Only init.sh + run.sh were called, no test script (no retry)
-    const initCalls = execCalls.filter((c) => c.join(' ').includes('init.sh'));
-    const runCalls = execCalls.filter((c) => c.join(' ').includes('run.sh'));
-    const testCalls = execCalls.filter((c) => c.join(' ').includes('python.sh'));
-    expect(initCalls).toHaveLength(1);
-    expect(runCalls).toHaveLength(1);
-    expect(testCalls).toHaveLength(0);
+    expect(taskError).toHaveProperty('errorMessage', expect.stringContaining('binary not found'));
   });
 
-  it('emits task:error when init.sh fails and never calls run.sh', async () => {
+  it('emits task:error when init.sh fails and never calls AcpSession.prompt', async () => {
     const execCalls: string[][] = [];
     vi.spyOn(executor, 'exec').mockImplementation(async (_handle, cmd) => {
       execCalls.push([...cmd]);
@@ -391,8 +432,8 @@ describe('Scheduler error paths', () => {
     expect(taskError).toBeDefined();
     expect(taskError).toHaveProperty('errorMessage', expect.stringContaining('init.sh'));
 
-    const runCalls = execCalls.filter((c) => c.join(' ').includes('run.sh'));
-    expect(runCalls).toHaveLength(0);
+    // AcpSession.prompt should not have been called since init.sh failed
+    expect(mockAcpSession.prompt).not.toHaveBeenCalled();
   });
 
   it('emits task:error when test script returns infra error exit code 2 and does not retry', async () => {
@@ -418,10 +459,9 @@ describe('Scheduler error paths', () => {
     const taskError = events.find((e) => e.type === 'task:error');
     expect(taskError).toHaveProperty('errorMessage', expect.stringContaining('Test harness'));
 
-    // run.sh called once, python.sh called once, no retry
-    const runCalls = execCalls.filter((c) => c.join(' ').includes('run.sh'));
+    // AcpSession.prompt called once, python.sh called once, no retry
+    expect(mockAcpSession.prompt).toHaveBeenCalledTimes(1);
     const testCalls = execCalls.filter((c) => c.join(' ').includes('python.sh'));
-    expect(runCalls).toHaveLength(1);
     expect(testCalls).toHaveLength(1);
   });
 });
@@ -432,29 +472,66 @@ describe('Scheduler cancel and concurrency', () => {
 
   beforeEach(() => {
     resetDbMocks();
+    resetAcpMocks();
     bus = new InMemoryEventBus();
     events = [];
     bus.subscribe('run-cc', (e) => events.push(e));
   });
 
-  it('cancels remaining tasks when cancel() is called mid-run', async () => {
+  it('emits task:cancelled (not task:error) when user cancels during ACP prompt', async () => {
+    mockAcpSession.prompt.mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      return { stopReason: 'cancelled' as const, content: '', toolCalls: [] } satisfies AgentResult;
+    });
+
     const executor = createMockExecutor();
     const reconciler = createMockReconciler();
 
-    // Make run.sh slow for the first lane so we can cancel mid-flight
-    let execCallCount = 0;
-    const originalExec = executor.exec.bind(executor);
-    executor.exec = async (handle: ExecutorHandle, cmd: string[], options?: { timeoutMs?: number; env?: Record<string, string> }) => {
-      const cmdStr = cmd.join(' ');
-      if (cmdStr.includes('run.sh')) {
-        execCallCount++;
-        if (execCallCount === 1) {
-          // First lane's run.sh is slow — gives us time to cancel
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        }
-      }
-      return originalExec(handle, cmd, options);
+    const config: RunConfig = {
+      runId: 'run-cc',
+      maxRetries: 0,
+      maxConcurrentLanes: 2,
+      stepTimeoutSeconds: 0,
+      taskIds: new Map([['e1:m1:s1', 'task-1']]),
+      lanes: [
+        {
+          agent: { id: 'a1', slug: 'agent1', type: 'mock', name: 'Agent1' },
+          model: { id: 'm1', name: 'model1', externalId: 'model1' },
+          executorId: 'e1',
+          scenarios: [{ id: 's1', slug: '1-trivial-pass', prompt: 'Implement the required functionality.', language: 'python' }],
+        },
+      ],
     };
+
+    const scheduler = new Scheduler(executor, reconciler, bus, './work');
+    const executePromise = scheduler.execute(config);
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await scheduler.cancel('run-cc');
+
+    await executePromise;
+
+    const cancelledEvent = events.find((e) => e.type === 'task:cancelled');
+    expect(cancelledEvent).toBeDefined();
+
+    const errorEvents = events.filter((e) => e.type === 'task:error');
+    expect(errorEvents).toHaveLength(0);
+  });
+
+  it('cancels remaining tasks when cancel() is called mid-run', async () => {
+    // Make ACP prompt slow for the first lane so we can cancel mid-flight
+    let promptCallCount = 0;
+    mockAcpSession.prompt.mockImplementation(async () => {
+      promptCallCount++;
+      if (promptCallCount === 1) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        return { stopReason: 'cancelled' as const, content: '', toolCalls: [] } satisfies AgentResult;
+      }
+      return { stopReason: 'end_turn' as const, content: 'done', toolCalls: [] } satisfies AgentResult;
+    });
+
+    const executor = createMockExecutor();
+    const reconciler = createMockReconciler();
 
     const config: RunConfig = {
       runId: 'run-cc',
@@ -484,7 +561,7 @@ describe('Scheduler cancel and concurrency', () => {
     const scheduler = new Scheduler(executor, reconciler, bus, './work');
     const executePromise = scheduler.execute(config);
 
-    // Cancel after 50ms — first lane is still blocked in run.sh
+    // Cancel after 50ms — first lane is still blocked in ACP prompt
     await new Promise((resolve) => setTimeout(resolve, 50));
     await scheduler.cancel('run-cc');
 
@@ -517,15 +594,14 @@ describe('Scheduler cancel and concurrency', () => {
       return originalStart(cfg);
     };
 
-    // Make each lane take some time so we can observe concurrency ordering
-    const originalExec = executor.exec.bind(executor);
-    executor.exec = async (handle: ExecutorHandle, cmd: string[], options?: { timeoutMs?: number; env?: Record<string, string> }) => {
-      const cmdStr = cmd.join(' ');
-      if (cmdStr.includes('run.sh')) {
-        await new Promise((resolve) => setTimeout(resolve, 50));
-      }
-      return originalExec(handle, cmd, options);
-    };
+    // Make each ACP prompt take some time so we can observe concurrency ordering
+    mockAcpSession.prompt.mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return {
+        stopReason: 'end_turn' as const, content: 'done', toolCalls: [],
+        usage: { inputTokens: 100, outputTokens: 50, totalTokens: 150, durationMs: 1000 },
+      } satisfies AgentResult;
+    });
 
     // Track when each lane's container stops (lane finished)
     const originalStop = executor.stop.bind(executor);
@@ -592,7 +668,7 @@ describe('Scheduler cancel and concurrency', () => {
     const executor = createMockExecutor();
     const reconciler = createMockReconciler();
 
-    // Lane 1: pass, Lane 2: fail (allPassed=false), Lane 3: infra error (exit code 2)
+    // Lane 1: pass, Lane 2: fail (allPassed=false), Lane 3: ACP error
     let evalCallCount = 0;
     vi.spyOn(reconciler, 'evaluate').mockImplementation(async () => {
       evalCallCount++;
@@ -604,15 +680,19 @@ describe('Scheduler cancel and concurrency', () => {
       return { allPassed: false, testsPassed: 0, testsTotal: 3, totalScore: 0, testOutput: 'fail', details: [] };
     });
 
-    // Lane 3 (model3) gets infra error on run.sh
-    const originalExec = executor.exec.bind(executor);
-    executor.exec = async (handle: ExecutorHandle, cmd: string[], options?: { timeoutMs?: number; env?: Record<string, string> }) => {
-      const cmdStr = cmd.join(' ');
-      if (cmdStr.includes('run.sh') && cmdStr.includes('model3')) {
-        return createMockInteractiveHandle({ exitCode: 2, stdout: '', stderr: 'infra failure' });
+    // Lane 3 (model3) gets ACP error
+    let promptCallCount = 0;
+    mockAcpSession.prompt.mockImplementation(async () => {
+      promptCallCount++;
+      if (promptCallCount === 3) {
+        // Third lane's prompt returns error
+        return { stopReason: 'error' as const, content: 'infra failure', toolCalls: [] } satisfies AgentResult;
       }
-      return originalExec(handle, cmd, options);
-    };
+      return {
+        stopReason: 'end_turn' as const, content: 'done', toolCalls: [],
+        usage: { inputTokens: 100, outputTokens: 50, totalTokens: 150, durationMs: 1000 },
+      } satisfies AgentResult;
+    });
 
     const config: RunConfig = {
       runId: 'run-cc',
