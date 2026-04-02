@@ -28,36 +28,61 @@ All agents run inside the `litmus/runtime-python` Docker image. Each agent commu
 | `*/models.sh` | Discover available models for an agent | Shell (via `collect()`) |
 | `tests/python.sh` | Run pytest and produce `test-results.json` | Shell (via `collect()`) |
 
+## ACP Smoke Test Results (2026-04-03)
+
+| Agent | Version | ACP Handshake | Notes |
+|---|---|---|---|
+| Cursor | 2026.03.30 | ❌ `unknown option '--acp'` | ACP not yet in stable CLI |
+| Claude Code | 2.1.90 | ❌ `unknown option '--acp'` | ACP not yet in stable CLI |
+| Codex | 0.118.0 | ❌ `stdin is not a terminal` | No `acp` subcommand |
+| OpenCode | 1.3.13 | ✅ Handshake OK | `protocolVersion` must be numeric (1), not string |
+| Cline | 2.13.0 | ⚠️ Partial | Accepts `--acp`, validates params, but times out after handshake |
+| KiloCode | 7.1.20 | ✅ Handshake OK | `protocolVersion` must be numeric (1), not string |
+| Mock | 1.0.0 | ✅ Handshake OK | Always works (Python stdlib) |
+
+**Currently onboardable via ACP:** OpenCode, KiloCode, Mock.
+**Pending ACP support in stable releases:** Cursor, Claude Code, Codex, Cline.
+
 ## Per-Agent Quirks
 
 ### Cursor
 - Binary is `agent`, not `cursor` (Cursor CLI installs as `agent`)
-- ACP command: `agent --acp` (not `cursor agent --acp`)
+- ACP command: `agent --acp` — **not yet supported** (v2026.03.30)
+- Stable CLI uses `agent --print` mode (non-ACP, stdout-based)
 
 ### Claude Code
-- Requires `ANTHROPIC_API_KEY` for prompts (initialize handshake works without it)
+- ACP command: `claude --acp` — **not yet supported** (v2.1.90)
 - Installed via native curl installer (no Node.js dependency)
+- Requires `ANTHROPIC_API_KEY` for prompts
 
 ### Codex
+- ACP command: `codex acp` — **not yet supported** (v0.118.0)
 - Requires Node.js (installed via npm globally)
 - `OPENAI_API_KEY` required
 
 ### OpenCode
-- Installed via native curl installer
-- Env vars depend on configured provider
+- ✅ ACP ready — `opencode acp` works
+- Runs one-time SQLite migration on first use (adds ~2s startup)
+- `protocolVersion` must be numeric (`1`), not string (`"2025-11-16"`)
+- Installed via native curl installer to `~/.opencode/bin/`
 
 ### Cline
-- Requires Node.js 20+ (installed via npm globally)
-- Env vars depend on configured provider
+- ACP command: `cline --acp` — **partial support** (v2.13.0)
+- Accepts ACP mode, validates JSON-RPC params, but times out after init
+- `protocolVersion` must be numeric
+- Requires Node.js 20+
 
 ### KiloCode
-- Uses pre-built musl binary for Docker compatibility
-- Downloaded from GitHub Releases (latest version at build time)
+- ✅ ACP ready — `kilo acp` works
+- Uses pre-built glibc binary (not musl — Debian-based image needs glibc)
+- Runs one-time SQLite migration on first use (adds ~2s startup)
+- `protocolVersion` must be numeric (`1`), not string
 
 ### Mock
 - Python 3.12 stdlib only — no external dependencies
 - Copies `solution/` files into workspace (simulates agent work)
 - Lives at `web/agents/mock/mock-acp-server.py`, bind-mounted to `/opt/agent/`
+- Accepts string `protocolVersion` (matches SDK constant `"2025-11-16"`)
 
 ## Building the Image
 
