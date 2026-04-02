@@ -8,7 +8,6 @@ import type {
   AgentExecutor,
   ExecutorHandle,
   ExecResult,
-  InteractiveHandle as InteractiveHandleAlias,
 } from '../types';
 
 describe('InteractiveHandle', () => {

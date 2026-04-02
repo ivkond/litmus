@@ -40,6 +40,7 @@ export interface InteractiveHandle {
 
 export interface AgentResult {
   stopReason: 'end_turn' | 'max_tokens' | 'max_turn_requests' | 'refusal' | 'cancelled' | 'error';
+  /** Accumulated text output from session/update notifications during the prompt turn */
   content: string;
   toolCalls: AgentToolCall[];
   usage?: {
