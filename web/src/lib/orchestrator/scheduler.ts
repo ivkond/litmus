@@ -38,7 +38,7 @@ export class Scheduler {
    *
    * Agents with native ACP: opencode, kilocode.
    * Agents via ACP adapter: claude-code, codex, cursor.
-   * Agents pending adapter fix: cline (cline-acp incompatible with cline v2.13).
+   * Note: cline native --acp works but exits silently if stdin closes prematurely.
    *
    * Keys MUST match `agent_executors.agent_type` values in DB.
    */

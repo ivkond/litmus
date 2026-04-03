@@ -36,13 +36,12 @@ All agents run inside the `litmus/runtime-python` Docker image. Each agent commu
 | Claude Code | `claude-agent-acp` | ✅ Handshake OK | Official adapter by ACP maintainers, v0.24.2 |
 | Codex | `codex-acp` | ✅ Handshake OK | Official adapter by Zed Industries, v0.11.1 |
 | OpenCode | `opencode acp` | ✅ Handshake OK | Native ACP, `protocolVersion` must be numeric (1) |
-| Cline | `cline --acp` | ⚠️ Partial | cline-acp adapter incompatible with cline v2.13 (`--output-format` flag removed) |
+| Cline | `cline --acp` | ✅ Handshake OK | Native ACP works; stdin must stay open (pipe close = silent exit) |
 | KiloCode | `kilo acp` | ✅ Handshake OK | Native ACP, `protocolVersion` must be numeric (1) |
 | Mock | `python3 .../mock-acp-server.py` | ✅ Handshake OK | Always works (Python stdlib) |
 
-**Fully onboardable (handshake confirmed):** Claude Code, Codex, OpenCode, KiloCode, Mock.
+**Fully onboardable (handshake confirmed):** Claude Code, Codex, OpenCode, Cline, KiloCode, Mock.
 **Needs API key to fully verify:** Cursor (adapter starts, binary found).
-**Pending adapter fix:** Cline (cline-acp v0.1.6 incompatible with cline CLI v2.13).
 
 ## Per-Agent Quirks
 
@@ -69,9 +68,11 @@ All agents run inside the `litmus/runtime-python` Docker image. Each agent commu
 - Installed to `~/.opencode/bin/`, symlinked to `/usr/local/bin/`
 
 ### Cline
-- Native `cline --acp` partially works but times out after param validation
-- `cline-acp` adapter (v0.1.6) incompatible with cline CLI v2.13 (`--output-format` flag removed)
-- **Blocked** until either cline native ACP stabilizes or cline-acp is updated
+- ✅ Native ACP — `cline --acp` works (v2.13.0)
+- **Critical quirk:** Cline exits silently if stdin closes before it sends a response. Our `AcpSession` keeps stdin open for the lifetime of the lane, so this is not an issue in production — only affects naive pipe tests (`echo | cline --acp`)
+- `cline-acp` adapter (v0.1.6) is **not needed** — native support works. The adapter is incompatible with v2.13 anyway (`--output-format` flag removed)
+- `protocolVersion` must be numeric (`1`), not string
+- Auth: Cline OAuth or ChatGPT subscription
 
 ### KiloCode
 - ✅ Native ACP — `kilo acp`
