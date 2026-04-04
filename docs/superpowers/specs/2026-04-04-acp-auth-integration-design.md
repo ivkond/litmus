@@ -62,19 +62,22 @@ Populated during model discovery. `null` = discovery not yet run.
 
 Current schema:
 ```
-agentExecutorId, envVar, encryptedValue, authType ('api_key'), createdAt, updatedAt
+agentExecutorId, envVar, encryptedValue, authType ('api_key' | 'oauth'), createdAt, updatedAt
+uniqueIndex on (agentExecutorId, envVar)
 ```
 
 New schema:
 ```
 agentExecutorId, envVar, encryptedValue, authType, acpMethodId, credentialPaths, createdAt, updatedAt
+uniqueIndex on (agentExecutorId, acpMethodId)  -- replaces old (agentExecutorId, envVar) index
 ```
 
 Changes:
-- `authType` enum: `'api_key' | 'oauth_token' | 'credential_files'`
-- `acpMethodId: text` — links to `authMethods[].id` from ACP (e.g. `"cline-oauth"`)
+- `authType` values: rename `'oauth'` → `'oauth_token'`, add `'credential_files'` (migration: `UPDATE agent_secrets SET auth_type = 'oauth_token' WHERE auth_type = 'oauth'`)
+- `acpMethodId: text NOT NULL` — links to `authMethods[].id` from ACP (e.g. `"cline-oauth"`)
 - `credentialPaths: text` — for `credential_files`: comma-separated paths relative to `$HOME` that were archived
-- `envVar` nullable — only set for `api_key` type
+- `envVar` nullable — only set for `api_key` / `env_var`-backed methods
+- **Unique constraint change:** drop `unique(agentExecutorId, envVar)`, add `unique(agentExecutorId, acpMethodId)` — one secret per auth method per executor
 
 Storage by type:
 - `api_key`: `envVar` = env var name, `encryptedValue` = encrypted API key string
@@ -86,15 +89,17 @@ Storage by type:
 Extends `POST /api/agents/[id]/models` (model discovery endpoint):
 
 ```
-1. executor.start()                    — start container
-2. AcpSession.start()                  — ACP initialize
+1. executor.start()                    — start container (returns handle)
+2. AcpSession.start(executor, handle)  — exec ACP binary, initialize handshake
 3. response.authMethods → DB           — cache in agent_executors.authMethods
-4. acpSession.close()                  — close ACP connection
-5. collect(executor, handle, models.sh) — existing model discovery
+4. acpSession.close()                  — close ACP process (stdin.end + wait)
+5. collect(executor, handle, models.sh) — existing model discovery (same container, new exec)
 6. executor.stop()                     — stop container
 ```
 
-If ACP initialize fails (binary missing, handshake error), `authMethods` is set to `null` and model discovery continues via `models.sh` as before.
+Steps 2-4 and step 5 use the **same container handle** but different `executor.exec()` calls. AcpSession spawns one process (the ACP binary) and closes it; `collect` spawns a separate process (models.sh). The Docker container stays running between steps (`sleep infinity` entrypoint). This is the same pattern used in the scheduler's `executeLane` → `executeScenario` flow.
+
+If ACP initialize fails (binary missing, handshake error), `authMethods` is set to `null`, model discovery continues via `models.sh`.
 
 ### Auth API Routes
 
@@ -159,8 +164,8 @@ When user clicks "Sign in with {name}" in UI:
 1. Start container with `env: { BROWSER: "echo", ...existingSecrets }`
 2. `AcpSession.start()` → `initialize`
 3. Call `connection.authenticate({ methodId })`
-4. Agent attempts to "open browser" → `echo` prints URL to container stdout
-5. Litmus captures URL from `proc.stderr` stream (ACP agents typically write user-facing messages to stderr)
+4. Agent attempts to "open browser" → `echo` prints URL to stdout of the subprocess spawned by the agent
+5. Litmus captures URL from **both** `proc.stdout` and `proc.stderr` streams — `BROWSER=echo` writes to stdout, but some agents may also echo the URL to stderr as a user-facing message. Monitor both, deduplicate.
 6. **Device code detection:** parse output for pattern matching — URL + alphanumeric code
 7. Stream to frontend via SSE: `{ status: "awaiting_browser", url, deviceCode? }`
 
@@ -272,6 +277,7 @@ interface AcpAgentConfig {
 - Encryption mechanism (AES-256-GCM) — same key, same algorithm
 - `getDecryptedSecretsForExecutor()` — extended but not broken
 - Docker executor — no changes
+- Existing `api_key` secrets in DB — backward compatible (authType stays `'api_key'`, acpMethodId populated from authMethods during migration or first discovery)
 - `collect()` utility — used for credential extraction/restoration
 - AcpSession core (start, prompt, cancel, close) — unchanged
 - SSE events, Reconciler, EventBus — unchanged
