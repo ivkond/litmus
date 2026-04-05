@@ -5,10 +5,8 @@ import { encrypt, decrypt, hasEncryptionKey } from '@/lib/encryption';
 
 /**
  * Load and decrypt all api_key secrets for an executor.
- * Handles both formats:
- * - New: encrypted JSON object `{ "VAR_NAME": "value" }` — unpacked to flat Record
- * - Old (transition): encrypted plain string — keyed by acpMethodId
- * Skips credential_files entries (those are binary blobs, not env vars).
+ * Values are stored as encrypted JSON objects `{ "VAR_NAME": "value", ... }`
+ * and unpacked into a flat Record. Skips credential_files entries.
  */
 export async function getDecryptedSecretsForExecutor(
   executorId: string,
@@ -29,23 +27,14 @@ export async function getDecryptedSecretsForExecutor(
     if (row.authType === 'credential_files') continue;
 
     try {
-      const decrypted = decrypt(row.encryptedValue);
-
-      try {
-        const parsed = JSON.parse(decrypted);
-        if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-          for (const [key, value] of Object.entries(parsed)) {
-            if (typeof value === 'string') {
-              env[key] = value;
-            }
-          }
-          continue;
-        }
-      } catch {
-        // Not JSON — fall through to old format handling
+      const parsed = JSON.parse(decrypt(row.encryptedValue));
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        console.error(`[secrets] Decrypted secret for method ${row.acpMethodId} is not a JSON object`);
+        continue;
       }
-
-      env[row.acpMethodId] = decrypted;
+      for (const [key, value] of Object.entries(parsed)) {
+        if (typeof value === 'string') env[key] = value;
+      }
     } catch (e) {
       console.error(`[secrets] Failed to decrypt secret for method ${row.acpMethodId}:`, e);
     }

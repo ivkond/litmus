@@ -91,17 +91,6 @@ describe('getDecryptedSecretsForExecutor', () => {
     expect(result).toEqual({ CURSOR_API_KEY: 'sk-abc123' });
   });
 
-  it('test_getDecryptedSecrets_oldPlainFormat_usesMethodIdAsKey', async () => {
-    dbMocks.rows.push({
-      acpMethodId: 'CURSOR_API_KEY',
-      encryptedValue: 'ENC:sk-plain-old',
-      authType: 'api_key',
-    });
-    const { getDecryptedSecretsForExecutor } = await import('../secrets');
-    const result = await getDecryptedSecretsForExecutor('executor-1');
-    expect(result).toEqual({ CURSOR_API_KEY: 'sk-plain-old' });
-  });
-
   it('test_getDecryptedSecrets_multipleVarsPerMethod_allUnpacked', async () => {
     dbMocks.rows.push({
       acpMethodId: 'openai-keys',

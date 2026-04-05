@@ -6,12 +6,6 @@ export async function register() {
       throw err;
     });
 
-    // Phase 2 migration: re-encrypt old secrets to keyed JSON format
-    const { migrateSecretsToKeyedJson } = await import('@/lib/agents/migrate-secrets');
-    await migrateSecretsToKeyedJson().catch((err) => {
-      console.error('[Startup] Secrets Phase 2 migration failed:', err);
-    });
-
     // Existing startup cleanup
     const { startupCleanup } = await import('@/lib/orchestrator/startup');
     await startupCleanup().catch((err) => {
