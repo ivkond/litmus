@@ -39,6 +39,9 @@ export const scenarios = pgTable('scenarios', {
   language: text('language'),
   tags: text('tags').array(),
   maxScore: integer('max_score'),
+  prompt: text('prompt'),
+  task: text('task'),
+  scoring: text('scoring'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
 
@@ -98,11 +101,24 @@ export const agentExecutors = pgTable('agent_executors', {
     enum: ['docker', 'host', 'kubernetes'],
   }).notNull(),
   agentSlug: text('agent_slug').notNull(),
+  agentType: text('agent_type').notNull().default('mock'),
   binaryPath: text('binary_path'),
   healthCheck: text('health_check'),
   config: jsonb('config').default({}),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
+
+export const agentSecrets = pgTable('agent_secrets', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  agentExecutorId: uuid('agent_executor_id').notNull().references(() => agentExecutors.id, { onDelete: 'cascade' }),
+  envVar: text('env_var').notNull(),
+  encryptedValue: text('encrypted_value').notNull(),
+  authType: text('auth_type', { enum: ['api_key', 'oauth'] }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+}, (table) => [
+  uniqueIndex('idx_agent_secrets_unique').on(table.agentExecutorId, table.envVar),
+]);
 
 export const runTasks = pgTable('run_tasks', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -200,6 +216,7 @@ export type Scenario = typeof scenarios.$inferSelect;
 export type Run = typeof runs.$inferSelect;
 export type RunResult = typeof runResults.$inferSelect;
 export type AgentExecutor = typeof agentExecutors.$inferSelect;
+export type AgentSecret = typeof agentSecrets.$inferSelect;
 export type RunTask = typeof runTasks.$inferSelect;
 export type JudgeProvider = typeof judgeProviders.$inferSelect;
 export type JudgeVerdict = typeof judgeVerdicts.$inferSelect;
