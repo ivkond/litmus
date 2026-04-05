@@ -13,12 +13,12 @@ import type {
   LaneConfig,
   EvalResult,
   TaskMeta,
-  AcpAgentConfig,
   AgentResult,
 } from './types';
 import type { Reconciler } from './reconciler';
 import type { EventBus } from './event-bus';
 import { collect } from './collect';
+import { resolveAcpConfig } from './acp-config';
 import { resolveAgentHostDirForDocker, resolveSharedScriptsDirForDocker, resolveWorkHostDirForDocker } from './docker-bind-paths';
 
 export class Scheduler {
@@ -32,32 +32,6 @@ export class Scheduler {
     private bus: EventBus,
     private workRoot: string,
   ) {}
-
-  /**
-   * Map agentType to ACP launch command.
-   *
-   * Agents with native ACP: opencode, kilocode.
-   * Agents via ACP adapter: claude-code, codex, cursor.
-   * Note: cline native --acp works but exits silently if stdin closes prematurely.
-   *
-   * Keys MUST match `agent_executors.agent_type` values in DB.
-   */
-  private resolveAcpConfig(agentType: string): AcpAgentConfig {
-    const configs: Record<string, AcpAgentConfig> = {
-      'claude-code': { acpCmd: ['claude-agent-acp'], requiresAuth: true },
-      'codex': { acpCmd: ['codex-acp'], requiresAuth: true },
-      'cursor': { acpCmd: ['cursor-agent-acp'], requiresAuth: true },
-      'cline': { acpCmd: ['cline', '--acp'], requiresAuth: true },
-      'opencode': { acpCmd: ['opencode', 'acp'], requiresAuth: true },
-      'kilocode': { acpCmd: ['kilo', 'acp'], requiresAuth: true },
-      'mock': { acpCmd: ['python3', '/opt/agent/mock-acp-server.py'], requiresAuth: false },
-    };
-    const config = configs[agentType];
-    if (!config) {
-      throw new Error(`No ACP config for agent type "${agentType}". Known types: ${Object.keys(configs).join(', ')}`);
-    }
-    return config;
-  }
 
   async execute(config: RunConfig): Promise<void> {
     this.cancelled = false;
@@ -195,7 +169,7 @@ export class Scheduler {
       this.activeHandles.set(laneKey, handle);
 
       // Start ACP session
-      const acpConfig = this.resolveAcpConfig(lane.agent.type);
+      const acpConfig = resolveAcpConfig(lane.agent.type);
       acpSession = await AcpSession.start(this.executor, handle, acpConfig);
       this.activeSessions.set(laneKey, acpSession);
 

@@ -65,6 +65,8 @@ export interface AcpAgentConfig {
   acpCmd: string[];
   requiresAuth: boolean;
   capabilities?: Record<string, unknown>;
+  /** Paths inside container (relative to /root) that hold credential files */
+  credentialPaths?: string[];
 }
 
 export interface ExecutorConfig {

@@ -72,7 +72,7 @@ export class AcpSession {
     await connection.initialize({
       protocolVersion: acp.PROTOCOL_VERSION,
       clientInfo: { name: 'litmus', version: '1.0.0' },
-      clientCapabilities: {},
+      clientCapabilities: acpConfig.capabilities ?? {},
     });
 
     return session;
@@ -166,6 +166,18 @@ export class AcpSession {
       Promise.all([this.connection.closed, this.proc.wait()]),
       safetyTimeout,
     ]);
+  }
+
+  // ── Public accessors for OAuth capture ──────────────────────
+
+  /** Call ACP authenticate for a given method. Used during OAuth capture flow. */
+  async authenticate(methodId: string): Promise<void> {
+    await this.connection.authenticate({ methodId });
+  }
+
+  /** Access the underlying process streams. Used by OAuth capture to monitor stdout/stderr for URLs. */
+  getProc(): InteractiveHandle {
+    return this.proc;
   }
 
   // ── Private: notification handler ──────────────────────────
