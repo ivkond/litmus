@@ -29,6 +29,41 @@
       "when": 1774623000000,
       "tag": "0003_compare_latest_results_index",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1774700000000,
+      "tag": "0004_judge_system",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1775200000000,
+      "tag": "0005_agent_secrets",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1775300000000,
+      "tag": "0006_agent_type",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1775400000000,
+      "tag": "0007_scenario_content",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1775500000000,
+      "tag": "0008_acp_auth",
+      "breakpoints": true
     }
   ]
 }

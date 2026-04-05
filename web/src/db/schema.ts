@@ -105,19 +105,22 @@ export const agentExecutors = pgTable('agent_executors', {
   binaryPath: text('binary_path'),
   healthCheck: text('health_check'),
   config: jsonb('config').default({}),
+  authMethods: jsonb('auth_methods'),
+  authMethodsDiscoveredAt: timestamp('auth_methods_discovered_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
 
 export const agentSecrets = pgTable('agent_secrets', {
   id: uuid('id').primaryKey().defaultRandom(),
   agentExecutorId: uuid('agent_executor_id').notNull().references(() => agentExecutors.id, { onDelete: 'cascade' }),
-  envVar: text('env_var').notNull(),
+  acpMethodId: text('acp_method_id').notNull(),
   encryptedValue: text('encrypted_value').notNull(),
-  authType: text('auth_type', { enum: ['api_key', 'oauth'] }).notNull(),
+  authType: text('auth_type', { enum: ['api_key', 'credential_files'] }).notNull(),
+  credentialPaths: jsonb('credential_paths'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 }, (table) => [
-  uniqueIndex('idx_agent_secrets_unique').on(table.agentExecutorId, table.envVar),
+  uniqueIndex('idx_agent_secrets_unique').on(table.agentExecutorId, table.acpMethodId),
 ]);
 
 export const runTasks = pgTable('run_tasks', {
