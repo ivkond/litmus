@@ -1,5 +1,11 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
+    const { ensureAppSchema } = await import('@/db/ensure-schema');
+    await ensureAppSchema().catch((err) => {
+      console.error('[Startup] Database schema migration failed:', err);
+      throw err;
+    });
+
     // Existing startup cleanup
     const { startupCleanup } = await import('@/lib/orchestrator/startup');
     await startupCleanup().catch((err) => {
