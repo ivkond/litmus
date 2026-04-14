@@ -8,6 +8,37 @@
 
 **Tech Stack:** Next.js API routes, Drizzle ORM (PostgreSQL), @agentclientprotocol/sdk, AES-256-GCM encryption, Docker exec (InteractiveHandle), SSE streaming
 
+**Spec:** [`docs/superpowers/specs/2026-04-04-acp-auth-integration-design.md`](../specs/2026-04-04-acp-auth-integration-design.md)
+
+### Commit Policy (TDD, atomic per Task)
+
+- **One git commit per Task**, created at the end of the Task after all verification steps are green (red → green → refactor → single commit).
+- Step-level `**Commit:** <message>` markers inside a Task are **logical checkpoints**, not actual git commits. They describe the incremental change for review/history purposes, but the only git commit is made after the final verification step of the Task passes.
+- When crafting the Task's single commit message, combine the step-level messages into a cohesive summary that reflects the full red→green→refactor cycle for that Task.
+- Do NOT commit after individual steps. Verification steps (labelled `**Commit:** (no commit — verification step)`) stay as verification-only and remain the gate before the single Task commit is made.
+
+### Risks & Mitigations
+
+| Risk | Mitigation |
+|---|---|
+| DB migration drops `envVar` column — destructive, hard to reverse mid-flight | Two-phase migration: Phase 1 SQL keeps both columns temporarily; Phase 2 re-encrypts at app startup. Column drop happens only in SQL step 6 after data is migrated. Rollback SQL in spec restores column from `acpMethodId`. |
+| OAuth capture relies on stdout URL scanning — fragile across agents | 30s URL capture timeout with automatic fallback to credential file upload. Each agent tested individually at onboarding. |
+| ACP `AuthMethodTerminal` is UNSTABLE/experimental | Raw types stored in DB. If SDK changes, re-run discovery to refresh. |
+| Large migration scope (10 tasks, 20+ files) | Linear dependency chain — each task produces testable output. Abort-safe: tasks 1-7 provide value without OAuth (task 8). |
+| Upload validation requires host `tar` binary (`spawn('tar', ['-tzvf', '-'])`) — may be missing on bare Windows hosts | **Prerequisite:** tar must be on PATH for the Next.js server process — available natively on Linux/macOS, and on Windows 10 build 17063+ (`tar.exe`) or via Git Bash. If absent, `PUT /api/agents/[id]/auth` returns `500 { error: 'Host tar binary not found…' }` with remediation guidance (see `TarMissingError` sentinel in Task 5). Document in deployment runbook. |
+
+### Rollback Strategy
+
+**Per-task rollback:** Each task ends with a git commit. To undo a task: `git revert <commit>`.
+
+**Full rollback (after all tasks):**
+1. Run rollback SQL from spec (see `docs/superpowers/specs/2026-04-04-acp-auth-integration-design.md` rollback section — restores `env_var` column and the `(executor_id, env_var)` unique constraint).
+2. `git revert` all commits in reverse order
+3. `credential_files` rows are deleted (accept-loss — new data, user can re-upload)
+4. Legacy `auth-schema.ts` and `auth.json` restored by git revert of Task 9
+
+**Partial rollback (tasks 1-7 done, tasks 8-10 not started):** System works without OAuth capture. env_var auth and credential file upload functional. Legacy files still present until Task 9.
+
 ---
 
 ## Task 1: DB Schema + Migration (Phase 1 SQL)
@@ -17,7 +48,7 @@
 **DoD:**
 - `agent_executors` has `authMethods` (jsonb, nullable) and `authMethodsDiscoveredAt` (timestamptz, nullable)
 - `agent_secrets` has `acpMethodId` (text, NOT NULL) instead of `envVar`, plus `credentialPaths` (jsonb, nullable)
-- `auth_type` enum includes `credential_files`
+- `auth_type` enum is `['api_key', 'credential_files']` (legacy `'oauth'` rows renamed in migration)
 - Unique index on `(agent_executor_id, acp_method_id)` replaces `(agent_executor_id, env_var)`
 - Migration file `0008_acp_auth.sql` exists and is valid SQL
 - Drizzle journal updated with new entry
@@ -120,7 +151,7 @@ export const agentSecrets = pgTable('agent_secrets', {
   agentExecutorId: uuid('agent_executor_id').notNull().references(() => agentExecutors.id, { onDelete: 'cascade' }),
   acpMethodId: text('acp_method_id').notNull(),
   encryptedValue: text('encrypted_value').notNull(),
-  authType: text('auth_type', { enum: ['api_key', 'oauth', 'credential_files'] }).notNull(),
+  authType: text('auth_type', { enum: ['api_key', 'credential_files'] }).notNull(),
   credentialPaths: jsonb('credential_paths'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
@@ -164,15 +195,27 @@ WHERE acp_method_id IS NULL;
 ALTER TABLE agent_secrets
   ALTER COLUMN acp_method_id SET NOT NULL;
 
--- 5. Drop old unique index and create new one
+-- 4b. Rename legacy auth_type='oauth' to new semantics 'credential_files'
+-- Legacy rows with oauth tokens/credentials were stored as auth_type='oauth'; the
+-- new semantics store OAuth-derived credentials as auth_type='credential_files'.
+UPDATE agent_secrets SET auth_type = 'credential_files' WHERE auth_type = 'oauth';
+
+-- 5. Drop the auto-generated unique constraint on env_var
+-- Migration 0005 used inline UNIQUE(agent_executor_id, env_var) which Postgres
+-- auto-names `agent_secrets_agent_executor_id_env_var_key` (NOT idx_agent_secrets_unique).
+-- This constraint must be dropped before we can drop the env_var column.
+ALTER TABLE agent_secrets DROP CONSTRAINT IF EXISTS agent_secrets_agent_executor_id_env_var_key;
+
+-- 6. Drop any previously-created named unique index (safe on first-run or retry),
+-- then create the new named unique index on the new (executor, acp_method_id) tuple.
 DROP INDEX IF EXISTS idx_agent_secrets_unique;
 CREATE UNIQUE INDEX idx_agent_secrets_unique ON agent_secrets (agent_executor_id, acp_method_id);
 
--- 6. Drop env_var column (data preserved in acp_method_id)
+-- 7. Drop env_var column (data preserved in acp_method_id via step 3)
 ALTER TABLE agent_secrets
   DROP COLUMN IF EXISTS env_var;
 
--- 7. Update auth_type check to include credential_files
+-- 8. Update auth_type check to include credential_files
 -- PostgreSQL text columns with Drizzle enums don't use CHECK constraints,
 -- so no ALTER needed for the auth_type column itself. The enum is enforced
 -- at the application layer by Drizzle.
@@ -210,6 +253,10 @@ Add a new entry at the end of the `entries` array:
 cd web && npx tsc --noEmit
 cd web && npx vitest run src/db/__tests__/schema-acp-auth.test.ts
 ```
+
+Expected: `tsc` exits 0 (no type errors). Vitest shows all tests pass (0 failures).
+If `tsc` fails with "property does not exist": check column names in schema match migration SQL.
+If tests fail with "Cannot find module": ensure `@/db/schema` path alias works.
 
 **Commit:** (no commit — verification step)
 
@@ -478,6 +525,50 @@ describe('getCredentialBlobs', () => {
 
     expect(result).toHaveLength(0);
   });
+
+  it('test_getCredentialBlobs_dbRowPaths_winOverFallbacks', async () => {
+    dbMocks.rows.push({
+      acpMethodId: 'chatgpt-oauth',
+      encryptedValue: 'ENC:dGVzdA==',
+      authType: 'credential_files',
+      credentialPaths: ['.db/path/'],
+    });
+    const { getCredentialBlobs } = await import('../secrets');
+    const result = await getCredentialBlobs(
+      'executor-1',
+      { 'chatgpt-oauth': ['.discovery/path/'] },
+      ['.acp-config/path/'],
+    );
+    expect(result[0].credentialPaths).toEqual(['.db/path/']);
+  });
+
+  it('test_getCredentialBlobs_discoveryPaths_usedWhenDbRowEmpty', async () => {
+    dbMocks.rows.push({
+      acpMethodId: 'chatgpt-oauth',
+      encryptedValue: 'ENC:dGVzdA==',
+      authType: 'credential_files',
+      credentialPaths: [],
+    });
+    const { getCredentialBlobs } = await import('../secrets');
+    const result = await getCredentialBlobs(
+      'executor-1',
+      { 'chatgpt-oauth': ['.discovery/path/'] },
+      ['.acp-config/path/'],
+    );
+    expect(result[0].credentialPaths).toEqual(['.discovery/path/']);
+  });
+
+  it('test_getCredentialBlobs_acpConfigPaths_usedAsLastResort', async () => {
+    dbMocks.rows.push({
+      acpMethodId: 'chatgpt-oauth',
+      encryptedValue: 'ENC:dGVzdA==',
+      authType: 'credential_files',
+      credentialPaths: null,
+    });
+    const { getCredentialBlobs } = await import('../secrets');
+    const result = await getCredentialBlobs('executor-1', {}, ['.acp-config/path/']);
+    expect(result[0].credentialPaths).toEqual(['.acp-config/path/']);
+  });
 });
 ```
 
@@ -557,7 +648,7 @@ export async function saveSecret(params: {
   executorId: string;
   acpMethodId: string;
   values: Record<string, string>;
-  authType: 'api_key' | 'oauth';
+  authType: 'api_key' | 'credential_files';
 }): Promise<void> {
   const encrypted = encrypt(JSON.stringify(params.values));
 
@@ -608,9 +699,21 @@ export async function saveCredentialBlob(params: {
 /**
  * Load all credential_files blobs for an executor.
  * Returns decrypted base64 tar data + the paths that should be restored.
+ *
+ * Credential path resolution priority (spec:356, per user-facing fix):
+ *   1. `agent_secrets.credentialPaths` (per-executor DB row) — HIGHEST
+ *   2. `fallbackPathsByMethodId[acpMethodId]` (from `authMethods[].credentialPaths` discovery cache)
+ *   3. `fallbackDefaultPaths` (from `resolveAcpConfig`) — LOWEST
+ *
+ * @param executorId          Agent executor id.
+ * @param fallbackPathsByMethodId  Per-method fallback paths from discovery cache
+ *                                  (`authMethods[].credentialPaths`). Optional.
+ * @param fallbackDefaultPaths     Last-resort default paths from `resolveAcpConfig(agentType).credentialPaths`.
  */
 export async function getCredentialBlobs(
   executorId: string,
+  fallbackPathsByMethodId: Record<string, string[]> = {},
+  fallbackDefaultPaths: string[] = [],
 ): Promise<Array<{ acpMethodId: string; base64Tar: string; credentialPaths: string[] }>> {
   if (!hasEncryptionKey()) {
     console.warn('[secrets] No encryption key configured — returning empty credential blobs');
@@ -629,10 +732,19 @@ export async function getCredentialBlobs(
 
     try {
       const base64Tar = decrypt(row.encryptedValue);
+
+      // Source priority: DB row → discovery cache per-method → acp-config default
+      const dbPaths = (row.credentialPaths as string[] | null) ?? [];
+      const discoveryPaths = fallbackPathsByMethodId[row.acpMethodId] ?? [];
+      const credentialPaths =
+        dbPaths.length > 0 ? dbPaths
+        : discoveryPaths.length > 0 ? discoveryPaths
+        : fallbackDefaultPaths;
+
       blobs.push({
         acpMethodId: row.acpMethodId,
         base64Tar,
-        credentialPaths: (row.credentialPaths as string[]) ?? [],
+        credentialPaths,
       });
     } catch (e) {
       console.error(`[secrets] Failed to decrypt credential blob for method ${row.acpMethodId}:`, e);
@@ -662,73 +774,6 @@ export async function deleteSecret(executorId: string, acpMethodId: string): Pro
 ### Step 2.3 — Phase 2 startup migration
 
 - [ ] Add re-encryption startup task that converts old plain-string secrets to keyed JSON format
-
-**File:** `web/src/lib/agents/migrate-secrets.ts`
-
-```typescript
-import { db } from '@/db';
-import { agentSecrets } from '@/db/schema';
-import { encrypt, decrypt, hasEncryptionKey } from '@/lib/encryption';
-
-/**
- * Phase 2 migration: re-encrypt old plain-string api_key secrets into keyed JSON format.
- *
- * Old format: acpMethodId = "CURSOR_API_KEY", encryptedValue = encrypt("sk-abc123")
- * New format: acpMethodId = "CURSOR_API_KEY", encryptedValue = encrypt('{"CURSOR_API_KEY":"sk-abc123"}')
- *
- * Runs at app startup. Idempotent — already-migrated rows (valid JSON objects) are skipped.
- */
-export async function migrateSecretsToKeyedJson(): Promise<number> {
-  if (!hasEncryptionKey()) {
-    console.warn('[migrate-secrets] No encryption key — skipping Phase 2 migration');
-    return 0;
-  }
-
-  const rows = await db.select().from(agentSecrets);
-  let migrated = 0;
-
-  for (const row of rows) {
-    if (row.authType !== 'api_key') continue;
-
-    try {
-      const decrypted = decrypt(row.encryptedValue);
-
-      // Check if already in new format (valid JSON object)
-      try {
-        const parsed = JSON.parse(decrypted);
-        if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-          continue; // Already migrated
-        }
-      } catch {
-        // Not JSON — needs migration
-      }
-
-      // Old format: plain string value. Wrap in keyed JSON using acpMethodId as key.
-      const keyedJson = JSON.stringify({ [row.acpMethodId]: decrypted });
-      const reEncrypted = encrypt(keyedJson);
-
-      await db
-        .update(agentSecrets)
-        .set({ encryptedValue: reEncrypted, updatedAt: new Date() })
-        .where(
-          import('drizzle-orm').then(({ eq }) => eq(agentSecrets.id, row.id)),
-        );
-
-      migrated++;
-    } catch (e) {
-      console.error(`[migrate-secrets] Failed to migrate secret ${row.id}:`, e);
-    }
-  }
-
-  if (migrated > 0) {
-    console.log(`[migrate-secrets] Phase 2: migrated ${migrated} secrets to keyed JSON format`);
-  }
-
-  return migrated;
-}
-```
-
-Wait — the `where` clause above uses a dynamic import incorrectly. Let me fix that:
 
 **File:** `web/src/lib/agents/migrate-secrets.ts`
 
@@ -863,13 +908,110 @@ export async function register() {
 
 **Commit:** `feat(startup): register Phase 2 secrets migration in instrumentation`
 
-### Step 2.5 — Run tests
+### Step 2.5 — Write migration test
 
-- [ ] Verify secrets tests pass
+- [ ] Add test for `migrateSecretsToKeyedJson` function
+
+**File:** `web/src/lib/agents/__tests__/migrate-secrets.test.ts`
+
+```typescript
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('@/db', () => ({
+  db: {
+    select: vi.fn(),
+    update: vi.fn(),
+  },
+}));
+
+vi.mock('@/lib/encryption', () => ({
+  encrypt: vi.fn((v: string) => `enc:${v}`),
+  decrypt: vi.fn((v: string) => v.replace('enc:', '')),
+  hasEncryptionKey: vi.fn(() => true),
+}));
+
+vi.mock('@/db/schema', () => ({
+  agentSecrets: { agentExecutorId: 'agentExecutorId', authType: 'authType', acpMethodId: 'acpMethodId', encryptedValue: 'encryptedValue', id: 'id' },
+}));
+
+import { migrateSecretsToKeyedJson } from '../migrate-secrets';
+
+describe('migrateSecretsToKeyedJson', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('test_migrateSecrets_plainStringFormat_convertsToKeyedJson', async () => {
+    const { db } = await import('@/db');
+    const mockRows = [
+      { id: '1', acpMethodId: 'ANTHROPIC_API_KEY', encryptedValue: 'enc:sk-abc', authType: 'api_key' },
+    ];
+    // Mock chain: db.select().from().where()
+    const mockWhere = vi.fn().mockResolvedValue(mockRows);
+    const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+    (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
+
+    const mockSet = vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
+    (db.update as ReturnType<typeof vi.fn>).mockReturnValue({ set: mockSet });
+
+    const count = await migrateSecretsToKeyedJson();
+    expect(count).toBe(1);
+    // Verify re-encryption to keyed JSON
+    expect(mockSet).toHaveBeenCalledWith(
+      expect.objectContaining({ encryptedValue: 'enc:{"ANTHROPIC_API_KEY":"sk-abc"}' }),
+    );
+  });
+
+  it('test_migrateSecrets_legacyOauthAuthType_renamedToCredentialFiles', async () => {
+    // The SQL migration (0008_acp_auth.sql step 4b) renames legacy auth_type='oauth'
+    // rows to auth_type='credential_files'. Simulate the SQL effect, then verify
+    // that the Phase 2 TS migration does NOT touch credential_files rows.
+    const { db } = await import('@/db');
+    const renamedRow = {
+      id: 'legacy-1',
+      acpMethodId: 'chatgpt',
+      encryptedValue: 'enc:base64blobdata',
+      // After SQL migration step 4b, legacy oauth rows have been renamed:
+      authType: 'credential_files',
+    };
+    const mockWhere = vi.fn().mockResolvedValue([renamedRow]);
+    const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+    (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
+    const mockSet = vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
+    (db.update as ReturnType<typeof vi.fn>).mockReturnValue({ set: mockSet });
+
+    const count = await migrateSecretsToKeyedJson();
+
+    // credential_files rows are not touched by Phase 2 keyed-JSON migration
+    expect(count).toBe(0);
+    expect(mockSet).not.toHaveBeenCalled();
+  });
+
+  it('test_migrateSecrets_alreadyJsonFormat_skips', async () => {
+    const { db } = await import('@/db');
+    const mockRows = [
+      { id: '2', acpMethodId: 'openai-api-key', encryptedValue: 'enc:{"OPENAI_API_KEY":"sk-xyz"}', authType: 'api_key' },
+    ];
+    const mockWhere = vi.fn().mockResolvedValue(mockRows);
+    const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+    (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
+    (db.update as ReturnType<typeof vi.fn>).mockReturnValue({ set: vi.fn().mockReturnValue({ where: vi.fn() }) });
+
+    const count = await migrateSecretsToKeyedJson();
+    expect(count).toBe(0);
+  });
+});
+```
+
+### Step 2.6 — Run tests
+
+- [ ] Verify secrets and migration tests pass
 
 ```bash
-cd web && npx vitest run src/lib/agents/__tests__/secrets.test.ts
+cd web && npx vitest run src/lib/agents/__tests__/secrets.test.ts src/lib/agents/__tests__/migrate-secrets.test.ts
 ```
+
+Expected: all tests pass (0 failures).
+If `Cannot find module` errors: check import paths match actual file locations.
+If `decrypt` errors: check mock returns match expected format.
 
 **Commit:** (no commit — verification step)
 
@@ -977,41 +1119,44 @@ import type { AcpAgentConfig } from './types';
  */
 export function resolveAcpConfig(agentType: string): AcpAgentConfig {
   const configs: Record<string, AcpAgentConfig> = {
+    // Fallback credentialPaths below match spec:363 verbatim. These directories
+    // (not individual files) are used as last-resort defaults when the agent's
+    // ACP `authMethods[].credentialPaths` discovery extension is not present.
     'claude-code': {
       acpCmd: ['claude-agent-acp'],
       requiresAuth: true,
       capabilities: { auth: { terminal: true } },
-      credentialPaths: ['.config/claude/credentials.json'],
+      credentialPaths: ['.config/claude/'],
     },
     'codex': {
       acpCmd: ['codex-acp'],
       requiresAuth: true,
       capabilities: { auth: { terminal: true } },
-      credentialPaths: ['.config/codex/auth.json'],
+      credentialPaths: ['.config/codex/'],
     },
     'cursor': {
       acpCmd: ['cursor-agent-acp'],
       requiresAuth: true,
       capabilities: { auth: { terminal: true } },
-      credentialPaths: ['.config/cursor/auth.json'],
+      credentialPaths: ['.config/cursor/'],
     },
     'cline': {
       acpCmd: ['cline', '--acp'],
       requiresAuth: true,
       capabilities: { auth: { terminal: true } },
-      credentialPaths: ['.config/cline/auth.json'],
+      credentialPaths: ['.config/cline/'],
     },
     'opencode': {
       acpCmd: ['opencode', 'acp'],
       requiresAuth: true,
       capabilities: { auth: { terminal: true } },
-      credentialPaths: ['.config/opencode/auth.json'],
+      credentialPaths: ['.opencode/'],
     },
     'kilocode': {
       acpCmd: ['kilo', 'acp'],
       requiresAuth: true,
       capabilities: { auth: { terminal: true } },
-      credentialPaths: ['.config/kilo/auth.json'],
+      credentialPaths: ['.config/kilo/'],
     },
     'mock': {
       acpCmd: ['python3', '/opt/agent/mock-acp-server.py'],
@@ -1083,7 +1228,23 @@ Replace the `connection.initialize` call (lines 72-76):
     });
 ```
 
-**Commit:** `feat(acp-session): pass capabilities from AcpAgentConfig to initialize`
+Also add two public methods to `AcpSession` (after the `close()` method):
+
+```typescript
+  // ── Public accessors for OAuth capture ──────────────────────
+
+  /** Call ACP authenticate for a given method. Used during OAuth capture flow. */
+  async authenticate(methodId: string): Promise<void> {
+    await this.connection.authenticate({ methodId });
+  }
+
+  /** Access the underlying process streams. Used by OAuth capture to monitor stdout/stderr for URLs. */
+  getProc(): InteractiveHandle {
+    return this.proc;
+  }
+```
+
+**Commit:** `feat(acp-session): pass capabilities from AcpAgentConfig to initialize, add authenticate() and getProc()`
 
 ### Step 3.6 — Run all existing tests
 
@@ -1092,6 +1253,8 @@ Replace the `connection.initialize` call (lines 72-76):
 ```bash
 cd web && npx vitest run src/lib/orchestrator/__tests__/
 ```
+
+Expected: all tests pass, 0 failures. If module not found: check import paths. If type error: check interface definitions match.
 
 **Commit:** (no commit — verification step)
 
@@ -1121,13 +1284,9 @@ import { extractAuthMethods, isOAuthCapable } from '../auth-discovery';
 describe('extractAuthMethods', () => {
   it('test_extractAuthMethods_envVarType_passedThrough', () => {
     const initResponse = {
-      capabilities: {
-        auth: {
-          methods: [
-            { id: 'openai-key', type: 'env_var', description: 'OpenAI API Key', envVars: ['OPENAI_API_KEY'] },
-          ],
-        },
-      },
+      authMethods: [
+        { id: 'openai-key', type: 'env_var', description: 'OpenAI API Key', vars: [{ name: 'OPENAI_API_KEY' }] },
+      ],
     };
 
     const result = extractAuthMethods(initResponse);
@@ -1137,19 +1296,15 @@ describe('extractAuthMethods', () => {
       id: 'openai-key',
       type: 'env_var',
       description: 'OpenAI API Key',
-      envVars: ['OPENAI_API_KEY'],
+      vars: [{ name: 'OPENAI_API_KEY' }],
     });
   });
 
   it('test_extractAuthMethods_noType_canonicalizesToAgent', () => {
     const initResponse = {
-      capabilities: {
-        auth: {
-          methods: [
-            { id: 'chatgpt', description: 'ChatGPT login' },
-          ],
-        },
-      },
+      authMethods: [
+        { id: 'chatgpt', description: 'ChatGPT login' },
+      ],
     };
 
     const result = extractAuthMethods(initResponse);
@@ -1160,41 +1315,33 @@ describe('extractAuthMethods', () => {
 
   it('test_extractAuthMethods_agentType_preserved', () => {
     const initResponse = {
-      capabilities: {
-        auth: {
-          methods: [
-            { id: 'github-oauth', type: 'agent', description: 'GitHub OAuth' },
-          ],
-        },
-      },
+      authMethods: [
+        { id: 'github-oauth', type: 'agent', description: 'GitHub OAuth' },
+      ],
     };
 
     const result = extractAuthMethods(initResponse);
     expect(result[0].type).toBe('agent');
   });
 
-  it('test_extractAuthMethods_noAuthCapabilities_returnsEmptyArray', () => {
+  it('test_extractAuthMethods_noAuthMethods_returnsEmptyArray', () => {
     const initResponse = { capabilities: {} };
     expect(extractAuthMethods(initResponse)).toEqual([]);
   });
 
-  it('test_extractAuthMethods_nullCapabilities_returnsEmptyArray', () => {
+  it('test_extractAuthMethods_emptyResponse_returnsEmptyArray', () => {
     const initResponse = {};
     expect(extractAuthMethods(initResponse)).toEqual([]);
   });
 
   it('test_extractAuthMethods_multipleMethodTypes_allCanonicalized', () => {
     const initResponse = {
-      capabilities: {
-        auth: {
-          methods: [
-            { id: 'api-key', type: 'env_var', description: 'API Key', envVars: ['API_KEY'] },
-            { id: 'chatgpt', description: 'ChatGPT' },
-            { id: 'github', type: 'agent', description: 'GitHub' },
-            { id: 'terminal-login', type: 'terminal', description: 'Terminal Login' },
-          ],
-        },
-      },
+      authMethods: [
+        { id: 'api-key', type: 'env_var', description: 'API Key', vars: [{ name: 'API_KEY' }] },
+        { id: 'chatgpt', description: 'ChatGPT' },
+        { id: 'github', type: 'agent', description: 'GitHub' },
+        { id: 'terminal-login', type: 'terminal', description: 'Terminal Login' },
+      ],
     };
 
     const result = extractAuthMethods(initResponse);
@@ -1251,11 +1398,16 @@ describe('isOAuthCapable', () => {
  * ACP auth method as returned by the agent's initialize response.
  * Stored in agent_executors.authMethods (jsonb).
  */
+export interface AcpAuthEnvVar {
+  name: string;
+  description?: string;
+}
+
 export interface AcpAuthMethod {
   id: string;
   type: 'env_var' | 'agent' | 'terminal';
   description?: string;
-  envVars?: string[];
+  vars?: AcpAuthEnvVar[];
   [key: string]: unknown;
 }
 
@@ -1264,17 +1416,12 @@ const OAUTH_DESC_PATTERNS = /oauth|device.?code|browser|sign.?in.?with/i;
 
 /**
  * Extract and canonicalize auth methods from the ACP initialize response.
+ * Per ACP SDK: `InitializeResponse.authMethods?: Array<AuthMethod>` (top-level).
  * - Entries without a `type` field are set to `type: 'agent'`.
  * - Unknown types are passed through as-is.
  */
 export function extractAuthMethods(initResponse: Record<string, unknown>): AcpAuthMethod[] {
-  const capabilities = initResponse.capabilities as Record<string, unknown> | undefined;
-  if (!capabilities) return [];
-
-  const auth = capabilities.auth as Record<string, unknown> | undefined;
-  if (!auth) return [];
-
-  const methods = auth.methods as Array<Record<string, unknown>> | undefined;
+  const methods = initResponse.authMethods as Array<Record<string, unknown>> | undefined;
   if (!Array.isArray(methods)) return [];
 
   return methods.map((m) => {
@@ -1403,13 +1550,9 @@ const mockAcpSession = vi.hoisted(() => ({
 const mockInitResponse = vi.hoisted(() => ({
   protocolVersion: '2025-11-16',
   agentInfo: { name: 'cursor-acp', version: '1.0.0' },
-  capabilities: {
-    auth: {
-      methods: [
-        { id: 'cursor-api-key', type: 'env_var', description: 'Cursor API Key', envVars: ['CURSOR_API_KEY'] },
-      ],
-    },
-  },
+  authMethods: [
+    { id: 'cursor-api-key', type: 'env_var', description: 'Cursor API Key', vars: [{ name: 'CURSOR_API_KEY' }] },
+  ],
 }));
 
 vi.mock('@/lib/orchestrator/acp-session', () => ({
@@ -1448,7 +1591,7 @@ describe('POST /api/agents/[id]/models — auth discovery', () => {
 
     // Auth methods should have been cached
     expect(dbMocks.executorAuthMethods).toEqual([
-      { id: 'cursor-api-key', type: 'env_var', description: 'Cursor API Key', envVars: ['CURSOR_API_KEY'] },
+      { id: 'cursor-api-key', type: 'env_var', description: 'Cursor API Key', vars: [{ name: 'CURSOR_API_KEY' }] },
     ]);
     expect(dbMocks.executorAuthMethodsDiscoveredAt).toBeInstanceOf(Date);
   });
@@ -1594,8 +1737,10 @@ export async function POST(
         docker, handle, acpConfig,
       );
 
-      const authMethods = extractAuthMethods(initResponse);
-      discoveredAuthMethods = authMethods.length > 0 ? authMethods : null;
+      // Semantics: [] = discovery succeeded with zero methods; null = discovery
+      // not yet performed or failed. We reached this branch only after ACP init
+      // succeeded, so we store the array as-is (even when empty).
+      discoveredAuthMethods = extractAuthMethods(initResponse);
 
       // Close ACP session — we only needed the init response
       await session.close();
@@ -1680,6 +1825,8 @@ cd web && npx vitest run src/lib/agents/__tests__/auth-discovery.test.ts
 cd web && npx vitest run src/app/api/agents/
 ```
 
+Expected: all tests pass, 0 failures. If module not found: check import paths. If type error: check interface definitions match.
+
 **Commit:** (no commit — verification step)
 
 ---
@@ -1689,11 +1836,14 @@ cd web && npx vitest run src/app/api/agents/
 **Goal:** Replace the existing auth.json-based auth route with ACP authMethods-based routes.
 
 **DoD:**
-- `GET /api/agents/[id]/auth` returns `AuthMethodStatus[]` from cached `authMethods`
+- `GET /api/agents/[id]/auth` returns `{ methods: AuthMethodStatus[], discoveryRequired: boolean }` from cached `authMethods` (spec:209); `discoveryRequired=true` when `authMethodsDiscoveredAt` is null
 - `PUT /api/agents/[id]/auth` saves `api_key` (JSON body) or `credential_files` (multipart)
-- `DELETE /api/agents/[id]/auth` removes secret by `acpMethodId` (idempotent 204)
+- `DELETE /api/agents/[id]/auth` removes secret by `methodId` (idempotent 204)
+- Public HTTP API body uses `methodId` (the ACP method id) consistently; internal DB/variable name is `acpMethodId`
+- `PUT /api/agents/[id]/auth` saves `api_key` (JSON body, Content-Type: application/json) or `credential_files` (multipart/form-data)
 - Auth status includes `oauthCapable`, `configured`, `maskedValues`
 - Tests for all routes
+- **Host prerequisite:** `tar` binary available on PATH for the Next.js process (used to validate uploaded credential tarballs). `TarMissingError` → 500 with actionable message if missing. See Risks & Mitigations.
 
 ### Step 5.1 — Write tests for auth API routes
 
@@ -1712,7 +1862,7 @@ const mockExecutor = {
   agentSlug: 'cursor',
   config: {},
   authMethods: [
-    { id: 'cursor-api-key', type: 'env_var', description: 'Cursor API Key', envVars: ['CURSOR_API_KEY'] },
+    { id: 'cursor-api-key', type: 'env_var', description: 'Cursor API Key', vars: [{ name: 'CURSOR_API_KEY' }] },
     { id: 'chatgpt', type: 'agent', description: 'ChatGPT OAuth login' },
   ],
   authMethodsDiscoveredAt: new Date(),
@@ -1816,17 +1966,35 @@ describe('GET /api/agents/[id]/auth', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.authMethods).toHaveLength(2);
+    // Spec:209 — response shape is { methods, discoveryRequired }
+    expect(body.methods).toHaveLength(2);
+    expect(body.discoveryRequired).toBe(false);
 
     // First method (env_var) should be configured
-    const envVarMethod = body.authMethods.find((m: Record<string, unknown>) => m.id === 'cursor-api-key');
+    const envVarMethod = body.methods.find((m: Record<string, unknown>) => m.id === 'cursor-api-key');
     expect(envVarMethod.configured).toBe(true);
     expect(envVarMethod.oauthCapable).toBe(false);
 
     // Second method (agent) should not be configured but oauthCapable
-    const agentMethod = body.authMethods.find((m: Record<string, unknown>) => m.id === 'chatgpt');
+    const agentMethod = body.methods.find((m: Record<string, unknown>) => m.id === 'chatgpt');
     expect(agentMethod.configured).toBe(false);
     expect(agentMethod.oauthCapable).toBe(true);
+  });
+
+  it('test_get_discoveryRequired_whenAuthMethodsNotYetDiscovered', async () => {
+    // executor.authMethodsDiscoveredAt === null → discoveryRequired=true, methods=[]
+    // Mutate the mock executor in-place before importing the route module.
+    mockExecutor.authMethods = null as unknown as typeof mockExecutor.authMethods;
+    mockExecutor.authMethodsDiscoveredAt = null as unknown as typeof mockExecutor.authMethodsDiscoveredAt;
+
+    const { GET } = await import('../route');
+    const request = new Request('http://localhost/api/agents/a1/auth');
+    const response = await GET(request, { params: Promise.resolve({ id: 'a1' }) });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.methods).toEqual([]);
+    expect(body.discoveryRequired).toBe(true);
   });
 });
 
@@ -1843,8 +2011,8 @@ describe('PUT /api/agents/[id]/auth', () => {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        acpMethodId: 'cursor-api-key',
-        authType: 'api_key',
+        methodId: 'cursor-api-key',
+        type: 'api_key',
         values: { CURSOR_API_KEY: 'sk-newkey123' },
       }),
     });
@@ -1869,8 +2037,8 @@ describe('PUT /api/agents/[id]/auth', () => {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        acpMethodId: 'nonexistent-method',
-        authType: 'api_key',
+        methodId: 'nonexistent-method',
+        type: 'api_key',
         values: { KEY: 'value' },
       }),
     });
@@ -1886,8 +2054,8 @@ describe('PUT /api/agents/[id]/auth', () => {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        acpMethodId: 'cursor-api-key',
-        authType: 'api_key',
+        methodId: 'cursor-api-key',
+        type: 'api_key',
       }),
     });
 
@@ -1908,7 +2076,7 @@ describe('DELETE /api/agents/[id]/auth', () => {
     const request = new Request('http://localhost/api/agents/a1/auth', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acpMethodId: 'cursor-api-key' }),
+      body: JSON.stringify({ methodId: 'cursor-api-key' }),
     });
 
     const response = await DELETE(request, { params: Promise.resolve({ id: 'a1' }) });
@@ -1948,6 +2116,80 @@ import { decrypt, hasEncryptionKey } from '@/lib/encryption';
 import { saveSecret, saveCredentialBlob, deleteSecret } from '@/lib/agents/secrets';
 import { isOAuthCapable } from '@/lib/agents/auth-discovery';
 import type { AcpAuthMethod } from '@/lib/agents/auth-discovery';
+import { spawn } from 'child_process';
+
+/**
+ * Host prerequisite: a `tar` binary MUST be available on PATH for the Next.js
+ * server process (Linux/macOS native; Windows requires tar.exe ≥ Windows 10 build
+ * 17063, or Git Bash). If `tar` is missing, upload validation cannot proceed and
+ * we surface an actionable 500-level error to the caller.
+ *
+ * Validate an uploaded tar archive by listing its entries with `tar -tzvf -` and
+ * rejecting unsafe entries:
+ *   - absolute paths (leading `/` or drive-letter prefix like `C:`)
+ *   - `..` traversal segments
+ *   - symlinks (lines starting with `l`) pointing outside the archive root
+ * Throws on any unsafe entry. Throws a sentinel `TarMissingError` if spawn ENOENT.
+ */
+export class TarMissingError extends Error {
+  constructor() {
+    super(
+      'Host `tar` binary not found. Install tar on the server host ' +
+      '(Linux/macOS native, Windows 10 build 17063+, or Git Bash) and restart.',
+    );
+    this.name = 'TarMissingError';
+  }
+}
+
+async function validateUploadedTarArchive(tarBuffer: Buffer): Promise<void> {
+  const listing = await new Promise<string>((resolve, reject) => {
+    const child = spawn('tar', ['-tzvf', '-'], { stdio: ['pipe', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString(); });
+    child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+    child.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'ENOENT') reject(new TarMissingError());
+      else reject(err);
+    });
+    child.on('close', (code) => {
+      if (code !== 0) reject(new Error(`tar listing failed (exit ${code}): ${stderr}`));
+      else resolve(stdout);
+    });
+    child.stdin.write(tarBuffer);
+    child.stdin.end();
+  });
+
+  const DRIVE_LETTER = /^[A-Za-z]:[/\\]/;
+  for (const rawLine of listing.split('\n')) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    // tar -tzvf output format:  "<perms> <owner> <size> <date> <time> <name>[ -> <linkTarget>]"
+    const parts = line.split(/\s+/);
+    if (parts.length < 6) continue;
+    const perms = parts[0];
+    // Name starts after 5 leading columns
+    const nameAndLink = parts.slice(5).join(' ');
+    const [name, linkTarget] = nameAndLink.split(' -> ');
+
+    if (name.startsWith('/') || DRIVE_LETTER.test(name)) {
+      throw new Error(`absolute path not allowed: "${name}"`);
+    }
+    const segments = name.split(/[/\\]/);
+    if (segments.some((s) => s === '..')) {
+      throw new Error(`path traversal not allowed: "${name}"`);
+    }
+    if (perms.startsWith('l') && linkTarget !== undefined) {
+      if (linkTarget.startsWith('/') || DRIVE_LETTER.test(linkTarget)) {
+        throw new Error(`symlink target must be relative: "${name}" -> "${linkTarget}"`);
+      }
+      const linkSegments = linkTarget.split(/[/\\]/);
+      if (linkSegments.some((s) => s === '..')) {
+        throw new Error(`symlink escapes archive root: "${name}" -> "${linkTarget}"`);
+      }
+    }
+  }
+}
 
 async function getExecutor(agentId: string) {
   const [agent] = await db.select().from(agents).where(eq(agents.id, agentId));
@@ -2005,7 +2247,7 @@ export async function GET(
 
   const secretMap = new Map(secrets.map((s) => [s.acpMethodId, s]));
 
-  const authMethods = cachedMethods.map((method) => {
+  const methods = cachedMethods.map((method) => {
     const secret = secretMap.get(method.id);
     const configured = !!secret;
     const oauthCapable = isOAuthCapable(method);
@@ -2023,9 +2265,11 @@ export async function GET(
     };
   });
 
+  // Spec:209 — response shape is { methods, discoveryRequired }.
+  // discoveryRequired=true signals UI to run model discovery before auth can be configured.
   return NextResponse.json({
-    authMethods,
-    discoveredAt: executor.authMethodsDiscoveredAt ?? null,
+    methods,
+    discoveryRequired: executor.authMethodsDiscoveredAt == null,
   });
 }
 
@@ -2049,24 +2293,87 @@ export async function PUT(
 
   const cachedMethods = (executor.authMethods as AcpAuthMethod[] | null) ?? [];
 
+  // Content-Type routing per spec:
+  // application/json → api_key
+  // multipart/form-data → credential_files
+  const contentType = request.headers.get('content-type') ?? '';
+
+  if (contentType.includes('multipart/form-data')) {
+    // credential_files: multipart upload
+    const formData = await request.formData();
+    const acpMethodId = formData.get('methodId') as string | null;
+    const file = formData.get('files') as File | null;
+    const credentialPathsRaw = formData.get('credentialPaths') as string | null;
+
+    if (!acpMethodId || !file) {
+      return NextResponse.json({ error: 'methodId and files are required for credential_files' }, { status: 400 });
+    }
+
+    const credentialPaths: string[] = credentialPathsRaw ? JSON.parse(credentialPathsRaw) : [];
+
+    // Size limit: 10MB
+    if (file.size > 10 * 1024 * 1024) {
+      return NextResponse.json({ error: 'Credential file exceeds 10MB limit' }, { status: 413 });
+    }
+
+    const method = cachedMethods.find((m) => m.id === acpMethodId);
+    if (!method) {
+      return NextResponse.json(
+        { error: `Auth method "${acpMethodId}" not found. Run model discovery first.` },
+        { status: 400 },
+      );
+    }
+
+    // Convert file to base64 for storage
+    const arrayBuf = await file.arrayBuffer();
+    const tarBuffer = Buffer.from(arrayBuf);
+
+    // Preflight: validate tar contents to prevent path traversal / symlink escape.
+    // Rejects absolute paths, drive-letter paths, `..` segments, and unsafe symlinks.
+    try {
+      await validateUploadedTarArchive(tarBuffer);
+    } catch (validationError) {
+      if (validationError instanceof TarMissingError) {
+        return NextResponse.json({ error: validationError.message }, { status: 500 });
+      }
+      return NextResponse.json(
+        {
+          error: `Rejected unsafe tar archive: ${
+            validationError instanceof Error ? validationError.message : String(validationError)
+          }`,
+        },
+        { status: 400 },
+      );
+    }
+
+    const base64Tar = tarBuffer.toString('base64');
+
+    await saveCredentialBlob({
+      executorId: executor.id,
+      acpMethodId,
+      base64Tar,
+      credentialPaths,
+    });
+
+    return NextResponse.json({ methodId: acpMethodId, saved: true }, { status: 201 });
+  }
+
+  // JSON body → api_key
   const body = await request.json();
-  const { acpMethodId, authType, values, base64Tar, credentialPaths } = body as {
-    acpMethodId?: string;
-    authType?: string;
+  const { methodId: acpMethodId, type: authType, values } = body as {
+    methodId?: string;
+    type?: string;
     values?: Record<string, string>;
-    base64Tar?: string;
-    credentialPaths?: string[];
   };
 
   if (!acpMethodId) {
-    return NextResponse.json({ error: 'acpMethodId is required' }, { status: 400 });
+    return NextResponse.json({ error: 'methodId is required' }, { status: 400 });
   }
 
-  // Validate method exists in cached authMethods
   const method = cachedMethods.find((m) => m.id === acpMethodId);
   if (!method) {
     return NextResponse.json(
-      { error: `Auth method "${acpMethodId}" not found in cached authMethods. Run model discovery first.` },
+      { error: `Auth method "${acpMethodId}" not found. Run model discovery first.` },
       { status: 400 },
     );
   }
@@ -2083,28 +2390,10 @@ export async function PUT(
       authType: 'api_key',
     });
 
-    return NextResponse.json({ acpMethodId, saved: true });
+    return NextResponse.json({ methodId: acpMethodId, saved: true });
   }
 
-  if (authType === 'credential_files') {
-    if (!base64Tar || !credentialPaths || credentialPaths.length === 0) {
-      return NextResponse.json(
-        { error: 'base64Tar and credentialPaths are required for credential_files type' },
-        { status: 400 },
-      );
-    }
-
-    await saveCredentialBlob({
-      executorId: executor.id,
-      acpMethodId,
-      base64Tar,
-      credentialPaths,
-    });
-
-    return NextResponse.json({ acpMethodId, saved: true });
-  }
-
-  return NextResponse.json({ error: 'authType must be "api_key" or "credential_files"' }, { status: 400 });
+  return NextResponse.json({ error: `Unsupported auth type: ${authType}` }, { status: 400 });
 }
 
 export async function DELETE(
@@ -2119,10 +2408,10 @@ export async function DELETE(
   }
 
   const body = await request.json();
-  const { acpMethodId } = body as { acpMethodId?: string };
+  const { methodId: acpMethodId } = body as { methodId?: string };
 
   if (!acpMethodId) {
-    return NextResponse.json({ error: 'acpMethodId is required' }, { status: 400 });
+    return NextResponse.json({ error: 'methodId is required' }, { status: 400 });
   }
 
   await deleteSecret(executor.id, acpMethodId);
@@ -2140,6 +2429,8 @@ export async function DELETE(
 ```bash
 cd web && npx vitest run src/app/api/agents/[id]/auth/__tests__/
 ```
+
+Expected: all tests pass, 0 failures. If module not found: check import paths. If type error: check interface definitions match.
 
 **Commit:** (no commit — verification step)
 
@@ -2198,9 +2489,11 @@ describe('extractCredentials', () => {
   });
 
   it('test_extractCredentials_validPaths_returnsBase64', async () => {
+    // `collect` returns raw tar bytes on stdout; extractCredentials base64-encodes them.
+    const rawTar = Buffer.from('testdata');
     collectMock.mockResolvedValueOnce({
       exitCode: 0,
-      stdout: 'dGVzdGRhdGE=\n',
+      stdout: rawTar.toString('binary'),
       stderr: '',
     });
 
@@ -2221,11 +2514,11 @@ describe('extractCredentials', () => {
       ['.config/cursor/auth.json'],
     );
 
-    expect(result).toBe('dGVzdGRhdGE=');
+    expect(result).toBe(rawTar.toString('base64'));
     expect(collectMock).toHaveBeenCalledWith(
       mockExecutor,
       mockHandle,
-      ['sh', '-c', 'tar czf - -C /root .config/cursor/auth.json | base64'],
+      ['tar', 'czf', '-', '-C', '/root', '.config/cursor/auth.json'],
       undefined,
     );
   });
@@ -2315,6 +2608,41 @@ describe('restoreCredentialFiles', () => {
     expect(written.length).toBeGreaterThan(0);
     expect(written).toEqual(Buffer.from(base64Tar, 'base64'));
   });
+
+  it('test_restoreCredentialFiles_nonZeroExit_throws', async () => {
+    const stdin = new PassThrough();
+    const stdout = new PassThrough();
+    const stderr = new PassThrough();
+
+    const mockHandle: InteractiveHandle = {
+      stdin,
+      stdout,
+      stderr,
+      wait: vi.fn().mockResolvedValue(2),
+      kill: vi.fn(),
+    };
+
+    const mockExecutor: AgentExecutor = {
+      type: 'docker',
+      exec: vi.fn().mockResolvedValue(mockHandle),
+      start: vi.fn(),
+      stop: vi.fn(),
+      healthCheck: vi.fn(),
+    };
+
+    const execHandle: ExecutorHandle = { containerId: 'c1' };
+    const base64Tar = Buffer.from('test-tar-data').toString('base64');
+
+    process.nextTick(() => { stdout.end(); stderr.end(); });
+
+    const { restoreCredentialFiles } = await import('../credential-files');
+
+    await expect(
+      restoreCredentialFiles(mockExecutor, execHandle, [
+        { acpMethodId: 'cursor-oauth', base64Tar, credentialPaths: ['.config/cursor/auth.json'] },
+      ]),
+    ).rejects.toThrow(/Failed to restore credentials/);
+  });
 });
 ```
 
@@ -2360,10 +2688,15 @@ export async function extractCredentials(
 ): Promise<string> {
   validateTarPaths(paths);
 
-  const escapedPaths = paths.map((p) => p.replace(/'/g, "'\\''"));
-  const tarCmd = `tar czf - -C /root ${escapedPaths.join(' ')} | base64`;
-
-  const result = await collect(executor, handle, ['sh', '-c', tarCmd], options);
+  // Use argv form (no shell) for `tar czf - -C /root ...paths`, then base64-encode
+  // the stdout capture in JS rather than shelling out through a pipeline. This
+  // avoids any shell-injection surface from user-controlled path strings.
+  const result = await collect(
+    executor,
+    handle,
+    ['tar', 'czf', '-', '-C', '/root', ...paths],
+    options,
+  );
 
   if (result.exitCode !== 0) {
     throw new Error(
@@ -2371,7 +2704,9 @@ export async function extractCredentials(
     );
   }
 
-  return result.stdout.trim();
+  // `result.stdout` carries the raw tar.gz bytes (collect returns them as a binary
+  // string). Convert to a Buffer via 'binary' encoding, then base64-encode.
+  return Buffer.from(result.stdout, 'binary').toString('base64');
 }
 
 /**
@@ -2403,8 +2738,10 @@ export async function restoreCredentialFiles(
     const exitCode = await ih.wait();
 
     if (exitCode !== 0) {
-      console.error(
-        `[credential-files] Failed to restore credentials for method "${blob.acpMethodId}" (exit ${exitCode})`,
+      // Throw so the Scheduler emits task:error per
+      // docs/superpowers/specs/2026-04-04-acp-auth-integration-design.md:569.
+      throw new Error(
+        `Failed to restore credentials for method "${blob.acpMethodId}" (tar exit ${exitCode})`,
       );
     }
   }
@@ -2420,6 +2757,8 @@ export async function restoreCredentialFiles(
 ```bash
 cd web && npx vitest run src/lib/orchestrator/__tests__/credential-files.test.ts
 ```
+
+Expected: all tests pass, 0 failures. If module not found: check import paths. If type error: check interface definitions match.
 
 **Commit:** (no commit — verification step)
 
@@ -2609,17 +2948,43 @@ Add imports at top:
 ```typescript
 import { restoreCredentialFiles } from './credential-files';
 import { getCredentialBlobs } from '@/lib/agents/secrets';
+import { eq } from 'drizzle-orm';
+import { db } from '@/db';
+import { agentExecutors } from '@/db/schema';
 ```
 
 In the `executeLane` method, after `this.activeHandles.set(laneKey, handle);` (line 195) and before `const acpConfig = resolveAcpConfig(lane.agent.type);` (line 198), add:
 
 ```typescript
-      // Restore credential files (OAuth tokens, session files) before ACP session
-      const credentialBlobs = await getCredentialBlobs(lane.executorId);
+      // Restore credential files (OAuth tokens, session files) before ACP session.
+      // Credential path resolution priority (spec:356):
+      //   1. agent_secrets.credentialPaths (DB row) — HIGHEST
+      //   2. authMethods[].credentialPaths from discovery cache
+      //   3. resolveAcpConfig(...).credentialPaths static fallback — LOWEST
+      const [executorRow] = await db
+        .select({ authMethods: agentExecutors.authMethods })
+        .from(agentExecutors)
+        .where(eq(agentExecutors.id, lane.executorId))
+        .limit(1);
+      const discoveryPathsByMethodId: Record<string, string[]> = {};
+      const cachedAuthMethods =
+        (executorRow?.authMethods as Array<{ id: string; credentialPaths?: string[] }> | null) ?? [];
+      for (const m of cachedAuthMethods) {
+        if (Array.isArray(m.credentialPaths) && m.credentialPaths.length > 0) {
+          discoveryPathsByMethodId[m.id] = m.credentialPaths;
+        }
+      }
+      const credentialBlobs = await getCredentialBlobs(
+        lane.executorId,
+        discoveryPathsByMethodId,
+        acpConfig.credentialPaths ?? [],
+      );
       if (credentialBlobs.length > 0) {
         await restoreCredentialFiles(this.executor, handle, credentialBlobs);
       }
 ```
+
+Note: the snippet above references `acpConfig`, which is resolved on the next line in the current code. Move `const acpConfig = resolveAcpConfig(lane.agent.type);` **up** one line (before credential restore) so the restore call can read `acpConfig.credentialPaths` for the fallback chain. The downstream `AcpSession` usage is unaffected.
 
 **Commit:** `feat(scheduler): restore credential files before AcpSession start`
 
@@ -2644,7 +3009,7 @@ const mockExecutorWithAuth = {
   type: 'docker',
   config: {},
   authMethods: [
-    { id: 'cursor-api-key', type: 'env_var', description: 'API Key', envVars: ['CURSOR_API_KEY'] },
+    { id: 'cursor-api-key', type: 'env_var', description: 'API Key', vars: [{ name: 'CURSOR_API_KEY' }] },
     { id: 'chatgpt', type: 'agent', description: 'ChatGPT OAuth' },
   ],
 };
@@ -2788,9 +3153,9 @@ Replace the imports — remove `loadAuthSchema`, add auth method types:
 
 ```typescript
 import { NextResponse } from 'next/server';
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, and } from 'drizzle-orm';
 import { db } from '@/db';
-import { runs, runTasks, agents, agentExecutors, models, scenarios } from '@/db/schema';
+import { runs, runTasks, agents, agentExecutors, agentSecrets, models, scenarios } from '@/db/schema';
 import { Scheduler } from '@/lib/orchestrator/scheduler';
 import { DockerExecutor } from '@/lib/orchestrator/docker-executor';
 import { Reconciler } from '@/lib/orchestrator/reconciler';
@@ -2803,10 +3168,23 @@ import type { AcpAuthMethod } from '@/lib/agents/auth-discovery';
 import { resolveAcpConfig } from '@/lib/orchestrator/acp-config';
 ```
 
-Replace the auth validation block (lines 69-79) with:
+**Canonical POST handler structure** — do NOT scatter `warnings` across patches. Apply
+all three touchpoints below in a single edit.
+
+**(a)** Declare `warnings` once, at function scope, **above** the `for (const agentSel
+of agentSelections)` loop in `POST`. It is populated per-agent and returned once in
+the response.
 
 ```typescript
-    // Validate required secrets from cached authMethods
+export async function POST(request: Request) {
+  // ...existing validation/body parsing...
+
+  const warnings: string[] = [];
+
+  for (const agentSel of agentSelections) {
+    // ...existing per-agent lookup (agent, executor, mergedEnv)...
+
+    // (b) Replace the legacy auth validation block (lines 69-79) with:
     const acpConfig = resolveAcpConfig(executor.agentType);
     const cachedAuthMethods = (executor.authMethods as AcpAuthMethod[] | null);
 
@@ -2817,14 +3195,12 @@ Replace the auth validation block (lines 69-79) with:
       );
     }
 
-    const warnings: string[] = [];
-
     if (cachedAuthMethods) {
       for (const method of cachedAuthMethods) {
         if (method.type === 'env_var') {
-          // env_var methods are required — check that all envVars are present
-          const envVars = (method.envVars as string[]) ?? [];
-          const missing = envVars.filter((v) => !mergedEnv[v]);
+          // env_var methods are required — check that all vars are present
+          const vars = (method.vars as Array<{ name: string }>) ?? [];
+          const missing = vars.map((v) => v.name).filter((name) => !mergedEnv[name]);
           if (missing.length > 0) {
             return NextResponse.json(
               { error: `Agent "${agent.name}" is missing required secrets: ${missing.join(', ')}` },
@@ -2832,33 +3208,44 @@ Replace the auth validation block (lines 69-79) with:
             );
           }
         } else if (method.type === 'agent' || method.type === 'terminal') {
-          // agent/terminal methods are optional — warn if not configured
-          // (We can't easily check these without querying secrets by method ID,
-          //  but env vars won't cover them. Add a warning for awareness.)
-          warnings.push(`Auth method "${method.id}" (${method.type}) may need configuration`);
+          // agent/terminal methods are optional — warn only when a matching
+          // agent_secrets row does NOT exist for (executorId, acpMethodId).
+          const [existing] = await db
+            .select({ acpMethodId: agentSecrets.acpMethodId })
+            .from(agentSecrets)
+            .where(
+              and(
+                eq(agentSecrets.agentExecutorId, executor.id),
+                eq(agentSecrets.acpMethodId, method.id),
+              ),
+            )
+            .limit(1);
+          if (!existing) {
+            warnings.push(
+              `Auth method "${method.id}" (${method.type}) is not configured — runtime may prompt for login`,
+            );
+          }
         }
       }
     }
-```
 
-At the end of the POST function, change the return to include warnings:
+    // ...rest of per-agent lane construction...
+  }
 
-```typescript
+  // ...existing run insert...
+
+  // (c) Return runId plus warnings collected across all agents
   return NextResponse.json(
     { runId: run.id, ...(warnings.length > 0 ? { warnings } : {}) },
     { status: 201 },
   );
+}
 ```
 
-Note: The `warnings` array needs to be declared outside the agent loop. Move the declaration before the `for (const agentSel of agentSelections)` loop:
-
-```typescript
-  const warnings: string[] = [];
-
-  for (const agentSel of agentSelections) {
-```
-
-And remove the `const warnings: string[] = [];` from inside the loop.
+Implementer checklist:
+- [ ] `warnings` declared **exactly once**, at `POST` function scope (not inside loops).
+- [ ] No inner redeclaration (`const warnings` inside `for` body) — remove any legacy instance.
+- [ ] Response body is the only place `warnings` is read.
 
 **Commit:** `feat(runs): replace loadAuthSchema with authMethods-based validation`
 
@@ -2870,6 +3257,8 @@ And remove the `const warnings: string[] = [];` from inside the loop.
 cd web && npx vitest run src/app/api/runs/__tests__/
 cd web && npx vitest run src/lib/orchestrator/__tests__/scheduler-credentials.test.ts
 ```
+
+Expected: all tests pass, 0 failures. If module not found: check import paths. If type error: check interface definitions match.
 
 **Commit:** (no commit — verification step)
 
@@ -3083,12 +3472,9 @@ export async function captureOAuthCredentials(params: {
     );
     session = acpSession;
 
-    // Trigger authentication
-    await (session as unknown as { connection: { authenticate: (p: { methodId: string }) => Promise<unknown> } })
-      .connection.authenticate({ methodId: acpMethodId });
-
-    // Monitor stdout/stderr for URLs
-    const proc = (session as unknown as { proc: { stdout: NodeJS.ReadableStream; stderr: NodeJS.ReadableStream } }).proc;
+    // IMPORTANT: Set up stdout/stderr listeners BEFORE calling authenticate()
+    // to avoid missing URL events that may arrive immediately.
+    const proc = session.getProc();  // public accessor added in Task 3
     const outputLines: string[] = [];
     let urlFound = false;
 
@@ -3130,28 +3516,20 @@ export async function captureOAuthCredentials(params: {
       });
     });
 
+    // Listeners are now attached. Drive the ACP authenticate() call in parallel
+    // with URL capture: authenticate() typically blocks until the user completes
+    // the browser/device flow (or the agent returns an error).
+    const authPromise = session.authenticate(acpMethodId);
+
     const { url, deviceCode } = await urlPromise;
     emit({ type: 'awaiting_browser', url, deviceCode });
 
-    // Wait for the auth process to complete (or timeout)
+    // Wait for authenticate() to resolve (success), or overall timeout.
     const overallTimeout = new Promise<'timeout'>((resolve) =>
       setTimeout(() => resolve('timeout'), OVERALL_TIMEOUT_MS),
     );
 
-    const completionPromise = new Promise<'completed'>((resolve) => {
-      // Monitor for process exit (auth completed)
-      const checkInterval = setInterval(() => {
-        // If the process closes stdout, auth is done
-        if (proc.stdout.readableEnded) {
-          clearInterval(checkInterval);
-          resolve('completed');
-        }
-      }, 1000);
-
-      signal.addEventListener('abort', () => {
-        clearInterval(checkInterval);
-      });
-    });
+    const completionPromise: Promise<'completed'> = authPromise.then(() => 'completed' as const);
 
     const result = await Promise.race([completionPromise, overallTimeout]);
 
@@ -3214,6 +3592,8 @@ import {
 } from '@/lib/orchestrator/docker-bind-paths';
 import { env } from '@/lib/env';
 import { getDecryptedSecretsForExecutor } from '@/lib/agents/secrets';
+import { isOAuthCapable } from '@/lib/agents/auth-discovery';
+import type { AcpAuthMethod } from '@/lib/agents/auth-discovery';
 import {
   captureOAuthCredentials,
   isCaptureLocked,
@@ -3244,10 +3624,20 @@ export async function POST(
   }
 
   const body = await request.json();
-  const { acpMethodId } = body as { acpMethodId?: string };
+  const { methodId: acpMethodId } = body as { methodId?: string };
 
   if (!acpMethodId) {
-    return NextResponse.json({ error: 'acpMethodId is required' }, { status: 400 });
+    return NextResponse.json({ error: 'methodId is required' }, { status: 400 });
+  }
+
+  // Validate methodId against cached authMethods (spec:269 — 400 if not oauth-capable)
+  const cachedMethods = (executor.authMethods as AcpAuthMethod[] | null) ?? [];
+  const method = cachedMethods.find((m) => m.id === acpMethodId);
+  if (!method || !isOAuthCapable(method)) {
+    return NextResponse.json(
+      { error: 'methodId not found or not oauth-capable' },
+      { status: 400 },
+    );
   }
 
   // Concurrency lock: one OAuth capture per executor at a time
@@ -3291,7 +3681,7 @@ export async function POST(
           env: mergedEnv,
           labels: {
             'litmus.managed': 'true',
-            'litmus.oauth': 'true',
+            'litmus-oauth': 'true',
             'litmus.executor-id': executor.id,
           },
         });
@@ -3339,6 +3729,83 @@ export async function POST(
 ```
 
 **Commit:** `feat(oauth-route): add SSE endpoint for OAuth device code capture`
+
+### Step 8.3a — Write failing test for methodId validation
+
+- [ ] Write test BEFORE implementation: 400 when `methodId` is missing from `authMethods` cache, or its method isn't OAuth-capable (per spec:269).
+
+**File:** `web/src/app/api/agents/[id]/auth/oauth/__tests__/oauth-validation.test.ts`
+
+```typescript
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('@/db', () => ({
+  db: {
+    select: vi.fn(),
+  },
+}));
+
+vi.mock('@/lib/agents/secrets', () => ({
+  getDecryptedSecretsForExecutor: vi.fn().mockResolvedValue({}),
+}));
+
+describe('POST /api/agents/[id]/auth/oauth — methodId validation (spec:269)', () => {
+  const agentId = 'a1';
+  const executorId = 'e1';
+
+  beforeEach(async () => {
+    const { db } = await import('@/db');
+    const agentRow = { id: agentId, name: 'Test' };
+    const executorRow = {
+      id: executorId,
+      agentId,
+      agentType: 'cline',
+      authMethods: [
+        { id: 'cline-oauth', type: 'agent', name: 'Sign in', description: 'Sign in via browser' },
+        { id: 'api-key', type: 'env_var', name: 'API Key', vars: [{ name: 'K' }] },
+      ],
+      config: {},
+    };
+    (db.select as ReturnType<typeof vi.fn>).mockReturnValue({
+      from: () => ({
+        where: () => ({
+          limit: () => Promise.resolve([executorRow]),
+          // agents lookup path (no .limit()):
+          then: (resolve: (v: unknown) => void) => resolve([agentRow]),
+        }),
+      }),
+    });
+  });
+
+  it('test_oauthRoute_methodIdMissingFromCache_returns400', async () => {
+    const { POST } = await import('../route');
+    const req = new Request('http://localhost/api/agents/a1/auth/oauth', {
+      method: 'POST',
+      body: JSON.stringify({ methodId: 'does-not-exist' }),
+    });
+    const res = await POST(req, { params: Promise.resolve({ id: agentId }) });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/not found or not oauth-capable/);
+  });
+
+  it('test_oauthRoute_methodIdNotOauthCapable_returns400', async () => {
+    const { POST } = await import('../route');
+    const req = new Request('http://localhost/api/agents/a1/auth/oauth', {
+      method: 'POST',
+      body: JSON.stringify({ methodId: 'api-key' }),
+    });
+    const res = await POST(req, { params: Promise.resolve({ id: agentId }) });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/not found or not oauth-capable/);
+  });
+});
+```
+
+**Expected before fix:** tests fail (no validation present). **After fix:** tests pass.
+
+**Commit:** `test(oauth-route): add methodId validation tests (spec:269)`
 
 ### Step 8.4 — Write test for OAuth SSE route concurrency
 
@@ -3397,6 +3864,8 @@ cd web && npx vitest run src/lib/agents/__tests__/oauth-capture.test.ts
 cd web && npx vitest run src/app/api/agents/[id]/auth/oauth/__tests__/
 ```
 
+Expected: all tests pass, 0 failures. If module not found: check import paths. If type error: check interface definitions match.
+
 **Commit:** (no commit — verification step)
 
 ---
@@ -3450,32 +3919,26 @@ def send_notification(method, params):
 _session_cwd = "/work"
 
 def handle_initialize(msg_id, params):
-    # Include authMethods in capabilities for auth discovery testing
-    client_caps = params.get("clientCapabilities", {})
-    auth_caps = client_caps.get("auth", {})
-
-    capabilities = {}
-    if auth_caps.get("terminal"):
-        capabilities["auth"] = {
-            "methods": [
-                {
-                    "id": "mock-api-key",
-                    "type": "env_var",
-                    "description": "Mock API Key",
-                    "envVars": ["MOCK_API_KEY"],
-                },
-                {
-                    "id": "mock-oauth",
-                    "type": "agent",
-                    "description": "Mock OAuth login (device code flow)",
-                },
-            ],
-        }
+    # Per ACP SDK: authMethods is a top-level field on InitializeResponse.
+    auth_methods = [
+        {
+            "id": "mock-api-key",
+            "type": "env_var",
+            "description": "Mock API Key",
+            "vars": [{"name": "MOCK_API_KEY"}],
+        },
+        {
+            "id": "mock-oauth",
+            "type": "agent",
+            "description": "Mock OAuth login (device code flow)",
+        },
+    ]
 
     send_response(msg_id, {
         "protocolVersion": "2025-11-16",
         "agentInfo": {"name": "mock-acp", "version": "1.0.0"},
-        "capabilities": capabilities,
+        "capabilities": {},
+        "authMethods": auth_methods,
     })
 
 def handle_new_session(msg_id, params):
@@ -3582,9 +4045,10 @@ if __name__ == "__main__":
 
 - [ ] Remove `web/src/lib/agents/auth-schema.ts`
 
-```bash
-cd web && rm src/lib/agents/auth-schema.ts
-```
+Use your editor or file deletion tool to remove the file:
+- Path: `web/src/lib/agents/auth-schema.ts`
+
+Verify it's gone (cross-platform): `node -e "console.log(require('fs').existsSync('web/src/lib/agents/auth-schema.ts'))"` should print `false`.
 
 **Commit:** `chore: delete legacy auth-schema.ts`
 
@@ -3592,14 +4056,13 @@ cd web && rm src/lib/agents/auth-schema.ts
 
 - [ ] Remove static auth.json files from agent directories
 
-```bash
-cd web && rm -f agents/cursor/auth.json
-```
+Use your editor or file deletion tool to remove:
+- Path: `web/agents/cursor/auth.json`
 
-Check for any other auth.json files:
+Check for any other auth.json files (cross-platform, Node-only):
 
 ```bash
-find web/agents -name 'auth.json' -type f
+node -e "const fs=require('fs'),path=require('path');const root=path.join('web','agents');const out=[];if(fs.existsSync(root)){for(const d of fs.readdirSync(root,{withFileTypes:true})){if(d.isDirectory()){const p=path.join(root,d.name,'auth.json');if(fs.existsSync(p))out.push(p);}}}console.log(out.length?out.join('\n'):'No auth.json files found');"
 ```
 
 Delete any found.
@@ -3614,25 +4077,49 @@ Delete any found.
 
 ```typescript
 import { describe, it, expect } from 'vitest';
-import { execSync } from 'child_process';
+import { readdirSync, readFileSync, existsSync } from 'fs';
+import { join } from 'path';
+
+/** Recursively scan dir for .ts/.tsx files containing a string pattern. Cross-platform. */
+function findFilesContaining(dir: string, pattern: string): string[] {
+  const results: string[] = [];
+  const walk = (d: string) => {
+    for (const entry of readdirSync(d, { withFileTypes: true })) {
+      const full = join(d, entry.name);
+      if (entry.isDirectory() && entry.name !== 'node_modules' && entry.name !== '.next') {
+        walk(full);
+      } else if (entry.isFile() && (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx'))) {
+        if (readFileSync(full, 'utf-8').includes(pattern)) results.push(full);
+      }
+    }
+  };
+  walk(dir);
+  return results;
+}
 
 describe('Legacy auth removal', () => {
   it('test_noLoadAuthSchemaImports_inSourceFiles', () => {
-    try {
-      const result = execSync(
-        'grep -r "loadAuthSchema" src/ --include="*.ts" --include="*.tsx" -l',
-        { cwd: process.cwd(), encoding: 'utf-8' },
-      );
-      // If grep finds files, they still import loadAuthSchema
-      expect(result.trim()).toBe('');
-    } catch {
-      // grep returns exit code 1 when no matches — that's what we want
-    }
+    const srcDir = join(process.cwd(), 'src');
+    const files = findFilesContaining(srcDir, 'loadAuthSchema');
+    expect(files).toEqual([]);
   });
 
   it('test_authSchemaFile_doesNotExist', () => {
-    const fs = require('fs');
-    expect(fs.existsSync('src/lib/agents/auth-schema.ts')).toBe(false);
+    expect(existsSync(join(process.cwd(), 'src/lib/agents/auth-schema.ts'))).toBe(false);
+  });
+
+  it('test_noAuthJsonFiles_inAgentDirs', () => {
+    const agentsDir = join(process.cwd(), '..', 'web', 'agents');
+    // Walk agent dirs looking for auth.json
+    if (!existsSync(agentsDir)) return; // Skip if agents dir not found from cwd
+    const authJsonFiles: string[] = [];
+    for (const entry of readdirSync(agentsDir, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        const authJsonPath = join(agentsDir, entry.name, 'auth.json');
+        if (existsSync(authJsonPath)) authJsonFiles.push(authJsonPath);
+      }
+    }
+    expect(authJsonFiles).toEqual([]);
   });
 });
 ```
@@ -3647,6 +4134,8 @@ describe('Legacy auth removal', () => {
 cd web && npx vitest run
 ```
 
+Expected: all tests pass, 0 failures. If module not found: check import paths. If type error: check interface definitions match.
+
 **Commit:** (no commit — verification step)
 
 ---
@@ -3656,7 +4145,7 @@ cd web && npx vitest run
 **Goal:** Add startup cleanup for OAuth capture containers that may have been left running.
 
 **DoD:**
-- Startup cleanup identifies containers with `litmus.oauth=true` label and removes them
+- Startup cleanup identifies containers with `litmus-oauth=true` label and removes them
 - OAuth containers get the label during creation (already done in Task 8)
 - Tested
 
@@ -3700,7 +4189,7 @@ describe('cleanupOAuthOrphans', () => {
     expect(cleaned).toBe(0);
     expect(mockListContainers).toHaveBeenCalledWith({
       all: true,
-      filters: { label: ['litmus.oauth=true'] },
+      filters: { label: ['litmus-oauth=true'] },
     });
   });
 
@@ -3732,11 +4221,11 @@ describe('cleanupOAuthOrphans', () => {
 Add after the existing `cleanupOrphans` method (after line 148):
 
 ```typescript
-  /** Remove all containers labeled litmus.oauth=true (OAuth capture orphan cleanup) */
+  /** Remove all containers labeled litmus-oauth=true (OAuth capture orphan cleanup) */
   async cleanupOAuthOrphans(): Promise<number> {
     const containers = await this.docker.listContainers({
       all: true,
-      filters: { label: ['litmus.oauth=true'] },
+      filters: { label: ['litmus-oauth=true'] },
     });
     for (const info of containers) {
       const c = this.docker.getContainer(info.Id);
@@ -3862,7 +4351,112 @@ export async function startupCleanup(): Promise<void> {
 cd web && npx vitest run
 ```
 
+Expected: all tests pass, 0 failures. If module not found: check import paths. If type error: check interface definitions match.
+
 **Commit:** (no commit — verification step)
+
+---
+
+## Task 11: Frontend — Agent Auth UI
+
+**Goal:** Rebuild the agent auth UI on top of the new ACP authMethods contract, per parent spec `docs/superpowers/specs/2026-04-04-acp-auth-integration-design.md:526`.
+
+**DoD:**
+- Agent settings page shows the discovered `authMethods[]` for each executor (id, type, description, `configured`, `oauthCapable`, `maskedValues`).
+- `api_key` methods are configurable via an inline form: one input per declared env var (`method.vars[*].name`), with save + clear buttons calling `PUT /api/agents/[id]/auth` (JSON) and `DELETE /api/agents/[id]/auth` with `{ methodId }`.
+- `credential_files` methods have a file upload form posting `multipart/form-data` to `PUT /api/agents/[id]/auth` with `methodId`, `files`, `credentialPaths`.
+- `oauthCapable` methods expose a "Capture OAuth credentials" button that opens an SSE consumer to `POST /api/agents/[id]/auth/oauth` with `{ methodId }`, rendering `starting | awaiting_browser | completed | failed` states (including URL + device code when present).
+- When `GET /api/agents/[id]/auth` returns `discoveryRequired: true` (i.e. `executor.authMethodsDiscoveredAt === null`), the UI surfaces "Run model discovery first" and links to the discovery action.
+- Manual QA checklist covers each of the four flows below on a dev instance before merge.
+- Component tests for the new forms and SSE consumer pass.
+
+### Step 11.1 — Component tests (red)
+
+- [ ] Add tests before UI implementation (React Testing Library + vitest)
+
+**File:** `web/src/components/settings/__tests__/auth-methods-panel.test.tsx`
+
+Scenarios:
+- `test_authMethodsPanel_discoveryRequired_rendersDiscoveryCta` — GET returns `{ methods: [], discoveryRequired: true }` → shows "Run model discovery first" CTA.
+- `test_authMethodsPanel_envVarMethod_rendersInputPerVar` — method with two `vars` entries → two labelled inputs rendered.
+- `test_authMethodsPanel_envVarMethod_submit_postsJsonWithMethodId` — fill inputs + submit → `fetch` called with `PUT`, `Content-Type: application/json`, body `{ methodId, type: 'api_key', values }`.
+- `test_authMethodsPanel_credentialFilesMethod_upload_postsMultipart` — selecting a file + submitting → `fetch` called with multipart body containing `methodId`, `files`, `credentialPaths`.
+- `test_authMethodsPanel_oauthCapableMethod_startCapture_opensSse` — click "Capture" → opens SSE, renders `awaiting_browser` state with URL + deviceCode.
+- `test_authMethodsPanel_configuredMethod_showsMaskedValues_andClearButton` — configured=true → shows masked values and clear button; clicking clear calls `DELETE` with `{ methodId }`.
+
+**Commit:** `test(ui): add tests for auth methods panel (envVar, credential_files, oauth)`
+
+### Step 11.2 — Implement the auth methods panel
+
+- [ ] Build the React component against the passing test scenarios
+
+**File:** `web/src/components/settings/auth-methods-panel.tsx`
+
+Contract:
+- Props: `{ agentId: string; methods: AuthMethodStatus[]; discoveryRequired: boolean }` — directly matches the `GET /api/agents/[id]/auth` response shape per spec:209 (`AuthMethodStatus` = `{ id, type, description?, vars?, configured, oauthCapable, maskedValues }`).
+- Renders one card per method. Type-specific sub-components:
+  - `EnvVarMethodForm` — inputs from `method.vars`, posts JSON.
+  - `CredentialFilesMethodForm` — file input + `credentialPaths` JSON textarea, posts multipart.
+  - `OAuthCaptureButton` — consumes SSE from the oauth route, renders status timeline.
+- All requests go through a shared `authFetch(agentId, init)` helper that handles errors and surfaces toasts.
+- Uses existing `Button`, `Input`, `Card` primitives from `web/src/components/ui/`.
+- No `useEffect` race conditions when executors change — identify by `agentId`.
+
+**Commit:** `feat(ui): auth methods panel with api_key, credential_files, and oauth flows`
+
+### Step 11.3 — Wire the panel into the agent settings page
+
+- [ ] Replace the legacy auth.json UI in `web/src/components/settings/agent-form.tsx` (and related pages) with `AuthMethodsPanel`
+- [ ] Remove references to static `auth.json` schema from the settings UI
+
+**Commit:** `feat(ui): render AuthMethodsPanel in agent settings, remove legacy auth.json UI`
+
+### Step 11.4 — Manual QA checklist
+
+- [ ] On a dev instance with a real Cursor executor, run model discovery — verify `methods` renders and `discoveryRequired=false`.
+- [ ] Configure `api_key` (CURSOR_API_KEY) — verify save succeeds, masked value appears, clear works.
+- [ ] Upload a `credential_files` tar for an OAuth-capable agent — verify 201 response, stored blob visible.
+- [ ] Trigger OAuth capture against the mock ACP agent — verify SSE shows `starting` → `awaiting_browser` (URL + device code) → `completed`.
+- [ ] Verify that an executor with `authMethodsDiscoveredAt === null` causes GET to return `discoveryRequired: true` and the UI shows the "Run model discovery first" CTA.
+
+**Commit:** (no commit — manual QA only)
+
+### Step 11.5 — Run component tests
+
+```bash
+cd web && npx vitest run src/components/settings/__tests__/auth-methods-panel.test.tsx
+```
+
+Expected: all tests pass, 0 failures.
+
+**Commit:** (no commit — verification step)
+
+---
+
+## Final Static Verification (mandatory before declaring plan DONE)
+
+Per project rules (`~/.claude/CLAUDE.md` — "Static: lint, type checking — always"), the
+following MUST pass after the last task and before the plan is marked complete. These
+gates apply to the whole repo, not just modified files.
+
+```bash
+cd web && npm run lint
+cd web && npx tsc --noEmit
+cd web && npx vitest run
+```
+
+Expected output:
+- `npm run lint` → exits 0, no ESLint errors or warnings. If warnings appear in
+  newly-added files, fix them (do NOT downgrade rules).
+- `npx tsc --noEmit` → exits 0, zero type errors. Any `@ts-expect-error` pragmas
+  must be accompanied by a one-line comment explaining why.
+- `npx vitest run` → all suites pass, 0 failures, 0 skipped (unless a skip has an
+  inline justification comment).
+
+If any gate fails, fix the underlying issue — do NOT silence rules or skip tests to
+make the gate green. A failing gate means the plan is not DONE.
+
+**Commit:** (no commit — verification gate only)
 
 ---
 
@@ -3887,6 +4481,9 @@ cd web && npx vitest run
 | `web/src/lib/orchestrator/__tests__/scheduler-credentials.test.ts` | 7 |
 | `web/src/app/api/agents/[id]/auth/oauth/route.ts` | 8 |
 | `web/src/app/api/agents/[id]/auth/oauth/__tests__/oauth-concurrency.test.ts` | 8 |
+| `web/src/app/api/agents/[id]/auth/oauth/__tests__/oauth-validation.test.ts` | 8 |
+| `web/src/components/settings/auth-methods-panel.tsx` | 11 |
+| `web/src/components/settings/__tests__/auth-methods-panel.test.tsx` | 11 |
 | `web/src/app/api/agents/[id]/models/__tests__/auth-discovery-integration.test.ts` | 4 |
 | `web/src/app/api/agents/[id]/auth/__tests__/auth-routes.test.ts` | 5 |
 | `web/src/app/api/runs/__tests__/auth-validation.test.ts` | 7 |
@@ -3908,6 +4505,7 @@ cd web && npx vitest run
 | `web/agents/mock/mock-acp-server.py` | 9 |
 | `web/src/lib/orchestrator/docker-executor.ts` | 10 |
 | `web/src/lib/orchestrator/startup.ts` | 10 |
+| `web/src/components/settings/agent-form.tsx` | 11 |
 
 ### Deleted Files
 | File | Task |
