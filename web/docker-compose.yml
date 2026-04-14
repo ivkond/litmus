@@ -1,6 +1,16 @@
 name: litmus # Pins the project name so volume/network names are deterministic
 
 services:
+  # Builds litmus/runtime-python:latest for the run engine (scheduler / agent lanes).
+  # One-shot so Compose still produces the image without leaving a sleeping container.
+  litmus-runtime-python:
+    image: litmus/runtime-python:latest
+    build:
+      context: ./agents/runtime
+      dockerfile: Dockerfile
+    restart: "no"
+    command: ["true"]
+
   litmus-web:
     build: .
     ports: ["3000:3000"]
@@ -13,8 +23,11 @@ services:
       S3_REGION: garage
       DOCKER_HOST: tcp://docker-socket-proxy:2375
       REDIS_URL: redis://valkey:6379
+      LITMUS_ENCRYPTION_KEY: ${LITMUS_ENCRYPTION_KEY:-}
       WORK_ROOT: /var/litmus/work
-      AGENTS_HOST_DIR: ${AGENTS_HOST_DIR:?Set AGENTS_HOST_DIR to the host-absolute path of ./agents (e.g. /home/user/litmus/web/agents)}
+      # Host paths for Docker binds (must be absolute on the machine running Docker, not paths inside the web container).
+      # AGENTS_HOST_DIR = web project root (parent of the agents/ folder), not .../agents itself.
+      AGENTS_HOST_DIR: ${AGENTS_HOST_DIR:?Set AGENTS_HOST_DIR to the host-absolute web directory (e.g. /home/user/litmus/web)}
       WORK_HOST_DIR: ${WORK_HOST_DIR:?Set WORK_HOST_DIR to the host-absolute path of ./work (e.g. /home/user/litmus/web/work)}
     volumes:
       - ./agents:/opt/agent:ro
@@ -22,7 +35,10 @@ services:
     networks:
       - litmus-internal
       - litmus-host
+      - litmus-agents # so compose creates the network; web needs it to spawn agent containers
     depends_on:
+      litmus-runtime-python:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       garage:
@@ -31,7 +47,6 @@ services:
         condition: service_started
       valkey:
         condition: service_healthy
-    profiles: ["full"] # Only started with: docker compose --profile full up
 
   docker-socket-proxy:
     image: tecnativa/docker-socket-proxy:latest
@@ -103,6 +118,7 @@ networks:
     # postgres + garage join this network solely for host port publishing
     # (ports: directives don't work on internal-only networks)
   litmus-agents:
+    name: litmus-agents # exact name used by the orchestrator when spawning agent containers
     driver: bridge
     # agent containers only; outbound internet for LLM API calls
     # no access to litmus-internal services

@@ -7,6 +7,8 @@ __pycache__/
 target/
 *.log
 
+node_modules/
+
 .agents_cache.yaml
 config.yaml
 litmus.yaml
