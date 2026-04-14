@@ -46,6 +46,12 @@ const dbMocks = vi.hoisted(() => {
 
 const refreshMatviewsMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 
+const dbSelectMock = vi.hoisted(() => vi.fn().mockReturnValue({
+  from: vi.fn().mockReturnValue({
+    where: vi.fn().mockResolvedValue([{ authMethods: null }]),
+  }),
+}));
+
 // Create a mock ACP session object that all tests share — must be hoisted
 const mockAcpSession = vi.hoisted(() => ({
   prompt: vi.fn().mockResolvedValue({
@@ -75,6 +81,7 @@ vi.mock('@/db', () => ({
   db: {
     update: dbMocks.updateMock,
     insert: dbMocks.insertMock,
+    select: dbSelectMock,
   },
 }));
 
@@ -82,10 +89,19 @@ vi.mock('@/lib/db/refresh-matviews', () => ({
   refreshMatviews: refreshMatviewsMock,
 }));
 
+vi.mock('@/lib/orchestrator/credential-files', () => ({
+  restoreCredentialFiles: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('@/lib/agents/secrets', () => ({
+  getCredentialBlobs: vi.fn().mockResolvedValue([]),
+}));
+
 vi.mock('@/db/schema', () => ({
   runs: { name: 'runs' },
   runTasks: { name: 'runTasks' },
   runResults: { name: 'runResults' },
+  agentExecutors: { name: 'agentExecutors', authMethods: 'authMethods' },
 }));
 
 function createMockInteractiveHandle(opts?: {

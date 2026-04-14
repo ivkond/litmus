@@ -2,7 +2,7 @@ import * as fs from 'fs/promises';
 import path from 'path';
 import { eq, and, inArray } from 'drizzle-orm';
 import { db } from '@/db';
-import { runs, runResults, runTasks } from '@/db/schema';
+import { runs, runResults, runTasks, agentExecutors } from '@/db/schema';
 import { refreshMatviews } from '@/lib/db/refresh-matviews';
 import { downloadFile, listFiles, BUCKETS } from '@/lib/s3';
 import { AcpSession } from './acp-session';
@@ -20,6 +20,8 @@ import type { EventBus } from './event-bus';
 import { collect } from './collect';
 import { resolveAcpConfig } from './acp-config';
 import { resolveAgentHostDirForDocker, resolveSharedScriptsDirForDocker, resolveWorkHostDirForDocker } from './docker-bind-paths';
+import { restoreCredentialFiles } from './credential-files';
+import { getCredentialBlobs } from '@/lib/agents/secrets';
 
 export class Scheduler {
   private cancelled = false;
@@ -168,8 +170,41 @@ export class Scheduler {
       });
       this.activeHandles.set(laneKey, handle);
 
-      // Start ACP session
+      // Resolve acpConfig before credential restore (needed for fallback paths)
       const acpConfig = resolveAcpConfig(lane.agent.type);
+
+      // Restore credential files (OAuth tokens, session files) before ACP session.
+      // Credential path resolution priority (spec:356):
+      //   1. agent_secrets.credentialPaths (DB row) — HIGHEST
+      //   2. authMethods[].credentialPaths from discovery cache
+      //   3. resolveAcpConfig(...).credentialPaths static fallback — LOWEST
+      try {
+        const [executorRow] = await db
+          .select({ authMethods: agentExecutors.authMethods })
+          .from(agentExecutors)
+          .where(eq(agentExecutors.id, lane.executorId))
+          .limit(1);
+        const discoveryPathsByMethodId: Record<string, string[]> = {};
+        const cachedAuthMethods =
+          (executorRow?.authMethods as Array<{ id: string; credentialPaths?: string[] }> | null) ?? [];
+        for (const m of cachedAuthMethods) {
+          if (Array.isArray(m.credentialPaths) && m.credentialPaths.length > 0) {
+            discoveryPathsByMethodId[m.id] = m.credentialPaths;
+          }
+        }
+        const credentialBlobs = await getCredentialBlobs(
+          lane.executorId,
+          discoveryPathsByMethodId,
+          acpConfig.credentialPaths ?? [],
+        );
+        if (credentialBlobs.length > 0) {
+          await restoreCredentialFiles(this.executor, handle, credentialBlobs);
+        }
+      } catch (err) {
+        console.error(`[scheduler] Credential restore failed for executor ${lane.executorId}:`, err);
+      }
+
+      // Start ACP session
       acpSession = await AcpSession.start(this.executor, handle, acpConfig);
       this.activeSessions.set(laneKey, acpSession);
 

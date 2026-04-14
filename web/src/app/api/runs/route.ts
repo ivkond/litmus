@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, and } from 'drizzle-orm';
 import { db } from '@/db';
-import { runs, runTasks, agents, agentExecutors, models, scenarios } from '@/db/schema';
+import { runs, runTasks, agents, agentExecutors, agentSecrets, models, scenarios } from '@/db/schema';
 import { Scheduler } from '@/lib/orchestrator/scheduler';
 import { DockerExecutor } from '@/lib/orchestrator/docker-executor';
 import { Reconciler } from '@/lib/orchestrator/reconciler';
@@ -10,7 +10,8 @@ import { env } from '@/lib/env';
 import { z } from 'zod';
 import type { LaneConfig } from '@/lib/orchestrator/types';
 import { getDecryptedSecretsForExecutor } from '@/lib/agents/secrets';
-import { loadAuthSchema } from '@/lib/agents/auth-schema';
+import type { AcpAuthMethod } from '@/lib/agents/auth-discovery';
+import { resolveAcpConfig } from '@/lib/orchestrator/acp-config';
 
 const createRunSchema = z.object({
   agents: z.array(z.object({
@@ -66,16 +67,42 @@ export async function POST(request: Request) {
     }
     const mergedEnv = secretsCache.get(executor.id)!;
 
-    // Validate required secrets from auth.json
-    const schema = await loadAuthSchema(executor.agentType);
-    const missing = schema.authMethods
-      .filter((m) => m.required && m.type === 'api_key' && !mergedEnv[m.envVar])
-      .map((m) => m.envVar);
-    if (missing.length > 0) {
+    // Validate required secrets using authMethods (replaces loadAuthSchema)
+    const acpConfig = resolveAcpConfig(executor.agentType);
+    const cachedAuthMethods = (executor.authMethods as AcpAuthMethod[] | null) ?? [];
+
+    if (cachedAuthMethods.length === 0 && acpConfig.requiresAuth) {
       return NextResponse.json(
-        { error: `Agent "${agent.name}" is missing required secrets: ${missing.join(', ')}` },
+        { error: `Agent "${agent.name}" has no auth methods discovered. Run model discovery first.` },
         { status: 400 },
       );
+    }
+
+    for (const method of cachedAuthMethods) {
+      if (method.type === 'env_var') {
+        const vars = (method.vars as Array<{ name: string }>) ?? [];
+        const missing = vars.map((v) => v.name).filter((name) => !mergedEnv[name]);
+        if (missing.length > 0) {
+          return NextResponse.json(
+            { error: `Agent "${agent.name}" is missing required secrets: ${missing.join(', ')}` },
+            { status: 400 },
+          );
+        }
+      } else if (method.type === 'agent' || method.type === 'terminal') {
+        const [existing] = await db
+          .select({ acpMethodId: agentSecrets.acpMethodId })
+          .from(agentSecrets)
+          .where(
+            and(
+              eq(agentSecrets.agentExecutorId, executor.id),
+              eq(agentSecrets.acpMethodId, method.id),
+            ),
+          )
+          .limit(1);
+        if (!existing) {
+          console.warn(`[runs] Auth method "${method.id}" (${method.type}) not configured for executor ${executor.id}`);
+        }
+      }
     }
 
     // Parse agent's available models for validation

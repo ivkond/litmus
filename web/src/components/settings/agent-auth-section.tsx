@@ -3,12 +3,13 @@
 import { useState, useEffect, useCallback } from 'react';
 
 interface AuthMethodView {
+  id: string;
   type: string;
-  envVar: string;
-  label: string;
-  required: boolean;
+  description?: string;
+  vars?: Array<{ name: string; description?: string }>;
   configured: boolean;
-  maskedValue: string | null;
+  oauthCapable: boolean;
+  maskedValues: Record<string, string> | null;
 }
 
 interface Props {
@@ -17,10 +18,11 @@ interface Props {
 
 export function AgentAuthSection({ agentId }: Props) {
   const [methods, setMethods] = useState<AuthMethodView[]>([]);
-  const [editing, setEditing] = useState<Record<string, string>>({});
+  const [editing, setEditing] = useState<Record<string, Record<string, string>>>({});
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [oauthLoading, setOauthLoading] = useState<string | null>(null);
 
   const fetchAuth = useCallback(async () => {
     try {
@@ -36,38 +38,38 @@ export function AgentAuthSection({ agentId }: Props) {
 
   useEffect(() => { fetchAuth(); }, [fetchAuth]);
 
-  const handleSave = async (envVar: string) => {
-    const value = editing[envVar];
-    if (!value?.trim()) return;
+  const handleSave = async (methodId: string) => {
+    const values = editing[methodId];
+    if (!values || Object.keys(values).length === 0) return;
 
-    setSaving(envVar);
+    setSaving(methodId);
     setError(null);
     try {
       const res = await fetch(`/api/agents/${agentId}/auth`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ envVar, value: value.trim() }),
+        body: JSON.stringify({ methodId, type: 'api_key', values }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         setError(data?.error ?? `Failed (${res.status})`);
         return;
       }
-      setEditing((prev) => { const next = { ...prev }; delete next[envVar]; return next; });
+      setEditing((prev) => { const next = { ...prev }; delete next[methodId]; return next; });
       await fetchAuth();
     } finally {
       setSaving(null);
     }
   };
 
-  const handleDelete = async (envVar: string) => {
-    setSaving(envVar);
+  const handleDelete = async (methodId: string) => {
+    setSaving(methodId);
     setError(null);
     try {
       const res = await fetch(`/api/agents/${agentId}/auth`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ envVar }),
+        body: JSON.stringify({ methodId }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -77,6 +79,56 @@ export function AgentAuthSection({ agentId }: Props) {
       await fetchAuth();
     } finally {
       setSaving(null);
+    }
+  };
+
+  const handleOAuth = async (methodId: string) => {
+    setOauthLoading(methodId);
+    setError(null);
+    try {
+      const res = await fetch(`/api/agents/${agentId}/auth/oauth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ methodId }),
+      });
+
+      const reader = res.body?.getReader();
+      if (!reader) {
+        setError('Failed to start OAuth flow');
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let done = false;
+
+      while (!done) {
+        const { value, done: doneReading } = await reader.read();
+        done = doneReading;
+        if (value) {
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const event = JSON.parse(line.slice(6));
+                if (event.type === 'failed') {
+                  setError(event.error);
+                  done = true;
+                } else if (event.type === 'completed') {
+                  await fetchAuth();
+                  done = true;
+                }
+              } catch {
+                // Skip invalid JSON
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'OAuth failed');
+    } finally {
+      setOauthLoading(null);
     }
   };
 
@@ -107,65 +159,99 @@ export function AgentAuthSection({ agentId }: Props) {
       )}
 
       {methods.map((method) => {
-        const envVar = method.envVar;
+        const isEnvVar = method.type === 'env_var';
+        const isOAuth = method.oauthCapable && !method.configured;
 
         return (
-          <div key={envVar} className="mb-3">
+          <div key={method.id} className="mb-4 pb-3 border-b border-[var(--border)] last:border-0">
             <label className={labelClass}>
-              {method.label}
-              {method.required && <span className="text-[var(--score-fail)] ml-1">*</span>}
+              {method.description ?? method.id}
+              {isEnvVar && <span className="text-[var(--score-fail)] ml-1">*</span>}
             </label>
 
-            {method.configured && !(envVar in editing) ? (
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-sm text-[var(--text-muted)]">
-                  {method.maskedValue}
-                </span>
-                <button
-                  className={smallBtn}
-                  onClick={() => setEditing((prev) => ({ ...prev, [envVar]: '' }))}
-                >
-                  Change
-                </button>
-                <button
-                  className={`${smallBtn} hover:text-[var(--score-fail)]`}
-                  onClick={() => handleDelete(envVar)}
-                  disabled={saving === envVar}
-                >
-                  Remove
-                </button>
+            {isEnvVar && method.vars && (
+              <div className="space-y-2">
+                {method.vars.map((v) => {
+                  const varName = v.name;
+                  const currentValue = editing[method.id]?.[varName] ?? '';
+                  const existingValue = method.maskedValues?.[varName];
+
+                  return (
+                    <div key={varName} className="flex items-center gap-2">
+                      <span className="text-xs font-mono text-[var(--text-muted)] w-32">{varName}</span>
+                      {existingValue && !(method.id in editing) ? (
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-sm text-[var(--text-muted)]">
+                            {existingValue}
+                          </span>
+                          <button
+                            className={smallBtn}
+                            onClick={() => setEditing((prev) => ({ ...prev, [method.id]: { [varName]: '' } }))}
+                          >
+                            Change
+                          </button>
+                          <button
+                            className={`${smallBtn} hover:text-[var(--score-fail)]`}
+                            onClick={() => handleDelete(method.id)}
+                            disabled={saving === method.id}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="password"
+                            value={currentValue}
+                            onChange={(e) =>
+                              setEditing((prev) => ({
+                                ...prev,
+                                [method.id]: { ...prev[method.id], [varName]: e.target.value },
+                              }))
+                            }
+                            placeholder={`Enter ${varName}`}
+                            className={inputClass}
+                          />
+                          <button
+                            onClick={() => handleSave(method.id)}
+                            disabled={saving === method.id || !currentValue.trim()}
+                            className="px-3 py-1.5 text-xs font-mono rounded-md
+                              bg-[var(--accent)] text-[var(--bg-base)]
+                              hover:opacity-90 transition-opacity
+                              disabled:opacity-50 whitespace-nowrap"
+                          >
+                            {saving === method.id ? '…' : 'Save'}
+                          </button>
+                          {method.configured && (
+                            <button
+                              className={smallBtn}
+                              onClick={() =>
+                                setEditing((prev) => { const next = { ...prev }; delete next[method.id]; return next; })
+                              }
+                            >
+                              Cancel
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <input
-                  type="password"
-                  value={editing[envVar] ?? ''}
-                  onChange={(e) =>
-                    setEditing((prev) => ({ ...prev, [envVar]: e.target.value }))
-                  }
-                  placeholder={`Enter ${method.label}`}
-                  className={inputClass}
-                />
+            )}
+
+            {isOAuth && !method.configured && (
+              <div className="mt-2">
                 <button
-                  onClick={() => handleSave(envVar)}
-                  disabled={saving === envVar || !editing[envVar]?.trim()}
+                  onClick={() => handleOAuth(method.id)}
+                  disabled={oauthLoading === method.id}
                   className="px-3 py-1.5 text-xs font-mono rounded-md
-                    bg-[var(--accent)] text-[var(--bg-base)]
+                    bg-[var(--accent-dim)] text-[var(--accent)]
                     hover:opacity-90 transition-opacity
-                    disabled:opacity-50 whitespace-nowrap"
+                    disabled:opacity-50"
                 >
-                  {saving === envVar ? '…' : 'Save'}
+                  {oauthLoading === method.id ? 'Authenticating...' : 'Authenticate via Browser'}
                 </button>
-                {method.configured && (
-                  <button
-                    className={smallBtn}
-                    onClick={() =>
-                      setEditing((prev) => { const next = { ...prev }; delete next[envVar]; return next; })
-                    }
-                  >
-                    Cancel
-                  </button>
-                )}
               </div>
             )}
           </div>
