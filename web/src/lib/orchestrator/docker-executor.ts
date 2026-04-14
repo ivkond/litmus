@@ -110,6 +110,19 @@ export class DockerExecutor implements AgentExecutor {
   }
 
   /**
+   * Verify that the runtime image exists locally.
+   * Returns false if image is not found (not pulled yet).
+   */
+  async checkImage(image: string): Promise<boolean> {
+    try {
+      await this.docker.getImage(image).inspect();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Kill all non-PID-1 processes inside a container (best-effort).
    * Used after exec timeout to prevent orphaned processes from starving the next scenario.
    */

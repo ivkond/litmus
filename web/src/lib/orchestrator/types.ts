@@ -6,6 +6,8 @@ export interface AgentExecutor {
   exec(handle: ExecutorHandle, cmd: string[], options?: ExecOptions): Promise<InteractiveHandle>;
   stop(handle: ExecutorHandle): Promise<void>;
   healthCheck(): Promise<boolean>;
+  /** Verify that the runtime image exists locally. Returns false if image is not found. */
+  checkImage?(image: string): Promise<boolean>;
 }
 
 export interface ExecOptions {
