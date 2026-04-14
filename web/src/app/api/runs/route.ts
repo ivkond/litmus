@@ -13,6 +13,29 @@ import { getDecryptedSecretsForExecutor } from '@/lib/agents/secrets';
 import type { AcpAuthMethod } from '@/lib/agents/auth-discovery';
 import { resolveAcpConfig } from '@/lib/orchestrator/acp-config';
 
+function validateAgentAuth(
+  agentName: string,
+  executorId: string,
+  authMethods: AcpAuthMethod[],
+  acpConfig: { requiresAuth: boolean },
+  mergedEnv: Record<string, string>,
+): string | null {
+  if (authMethods.length === 0 && acpConfig.requiresAuth) {
+    return `Agent "${agentName}" has no auth methods discovered. Run model discovery first.`;
+  }
+
+  for (const method of authMethods) {
+    if (method.type === 'env_var') {
+      const vars = (method.vars as Array<{ name: string }>) ?? [];
+      const missing = vars.map((v) => v.name).filter((name) => !mergedEnv[name]);
+      if (missing.length > 0) {
+        return `Agent "${agentName}" is missing required secrets: ${missing.join(', ')}`;
+      }
+    }
+  }
+  return null;
+}
+
 const createRunSchema = z.object({
   agents: z.array(z.object({
     id: z.string().uuid(),
@@ -71,24 +94,20 @@ export async function POST(request: Request) {
     const acpConfig = resolveAcpConfig(executor.agentType);
     const cachedAuthMethods = (executor.authMethods as AcpAuthMethod[] | null) ?? [];
 
-    if (cachedAuthMethods.length === 0 && acpConfig.requiresAuth) {
-      return NextResponse.json(
-        { error: `Agent "${agent.name}" has no auth methods discovered. Run model discovery first.` },
-        { status: 400 },
-      );
+    const authError = validateAgentAuth(
+      agent.name,
+      executor.id,
+      cachedAuthMethods,
+      acpConfig,
+      mergedEnv,
+    );
+    if (authError) {
+      return NextResponse.json({ error: authError }, { status: 400 });
     }
 
+    // Check agent/terminal auth methods (warn only, don't block)
     for (const method of cachedAuthMethods) {
-      if (method.type === 'env_var') {
-        const vars = (method.vars as Array<{ name: string }>) ?? [];
-        const missing = vars.map((v) => v.name).filter((name) => !mergedEnv[name]);
-        if (missing.length > 0) {
-          return NextResponse.json(
-            { error: `Agent "${agent.name}" is missing required secrets: ${missing.join(', ')}` },
-            { status: 400 },
-          );
-        }
-      } else if (method.type === 'agent' || method.type === 'terminal') {
+      if (method.type === 'agent' || method.type === 'terminal') {
         const [existing] = await db
           .select({ acpMethodId: agentSecrets.acpMethodId })
           .from(agentSecrets)

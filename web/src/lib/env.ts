@@ -11,8 +11,9 @@ const envShape = {
   AGENTS_HOST_DIR: z.string().optional(),
   WORK_HOST_DIR: z.string().optional(),
   REDIS_URL: z.string().default('redis://localhost:6379'),
-  JUDGE_ENCRYPTION_KEY: z.string().length(64).optional(), // 32 bytes hex, legacy — prefer LITMUS_ENCRYPTION_KEY
-  LITMUS_ENCRYPTION_KEY: z.string().length(64).optional(), // 32 bytes hex, used for agent secrets & judge keys
+  JUDGE_ENCRYPTION_KEY: z.string().length(64).optional(),
+  LITMUS_ENCRYPTION_KEY: z.string().length(64).optional(),
+  LITMUS_ACP_AUTO_APPROVE_PERMISSIONS: z.string().default('false'),
 } as const;
 
 const envSchema = z.object(envShape);

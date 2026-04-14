@@ -12,7 +12,12 @@ export class DockerExecutor implements AgentExecutor {
 
   constructor(dockerHost: string) {
     const url = new URL(dockerHost);
-    this.docker = new Dockerode({ host: url.hostname, port: Number(url.port) });
+    if (url.protocol === 'unix:' || dockerHost.startsWith('unix://')) {
+      const socketPath = dockerHost.replace(/^unix:\/\//, '');
+      this.docker = new Dockerode({ socketPath });
+    } else {
+      this.docker = new Dockerode({ host: url.hostname, port: Number(url.port) });
+    }
   }
 
   async start(config: ExecutorConfig): Promise<ContainerHandle> {

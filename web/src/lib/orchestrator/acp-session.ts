@@ -1,5 +1,6 @@
 import { Writable, Readable } from 'stream';
 import * as acp from '@agentclientprotocol/sdk';
+import { env } from '@/lib/env';
 import type {
   AgentExecutor,
   ExecutorHandle,
@@ -8,6 +9,18 @@ import type {
   AgentResult,
   AgentToolCall,
 } from './types';
+
+function createRequestPermissionHandler(): (params: acp.RequestPermissionRequest) => Promise<acp.RequestPermissionResponse> {
+  const autoApprove = env.LITMUS_ACP_AUTO_APPROVE_PERMISSIONS === 'true';
+  return async (params: acp.RequestPermissionRequest): Promise<acp.RequestPermissionResponse> => {
+    if (autoApprove && params.options?.[0]) {
+      return {
+        outcome: { outcome: 'selected' as const, optionId: params.options[0].optionId },
+      };
+    }
+    return { outcome: { outcome: 'cancelled' as const } };
+  };
+}
 
 // ─── Params ────────────────────────────────────────────────────
 
@@ -50,20 +63,11 @@ export class AcpSession {
     let session: AcpSession;
 
     const connection = new acp.ClientSideConnection((_agent) => {
-      // The client object handles incoming notifications from the agent
       return {
         sessionUpdate: async (notification: acp.SessionNotification) => {
           session.handleSessionUpdate(notification);
         },
-        requestPermission: async (params: acp.RequestPermissionRequest) => {
-          // Auto-approve in headless mode: select the first option
-          const firstOption = params.options?.[0];
-          return {
-            outcome: firstOption
-              ? { outcome: 'selected' as const, optionId: firstOption.optionId }
-              : { outcome: 'cancelled' as const },
-          } satisfies acp.RequestPermissionResponse;
-        },
+        requestPermission: createRequestPermissionHandler(),
       };
     }, stream);
 
@@ -100,14 +104,7 @@ export class AcpSession {
         sessionUpdate: async (notification: acp.SessionNotification) => {
           session.handleSessionUpdate(notification);
         },
-        requestPermission: async (params: acp.RequestPermissionRequest) => {
-          const firstOption = params.options?.[0];
-          return {
-            outcome: firstOption
-              ? { outcome: 'selected' as const, optionId: firstOption.optionId }
-              : { outcome: 'cancelled' as const },
-          } satisfies acp.RequestPermissionResponse;
-        },
+        requestPermission: createRequestPermissionHandler(),
       };
     }, stream);
 
