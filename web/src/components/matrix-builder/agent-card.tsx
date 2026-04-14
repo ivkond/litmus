@@ -1,5 +1,8 @@
 'use client';
 
+import { useCallback } from 'react';
+import { ModelCombobox } from './model-combobox';
+
 interface ModelChip {
   dbId: string;
   name: string;
@@ -17,6 +20,11 @@ interface AgentCardProps {
 export function AgentCard({ agent, selectedModels, onToggleModel, onRefreshModels, isRefreshing }: AgentCardProps) {
   const hasSelected = agent.availableModels.some((m) => selectedModels.has(m.dbId));
 
+  const handleToggle = useCallback(
+    (modelDbId: string) => onToggleModel(agent.id, modelDbId),
+    [agent.id, onToggleModel],
+  );
+
   return (
     <div className={`rounded-lg border p-4 transition-colors ${
       hasSelected
@@ -33,27 +41,16 @@ export function AgentCard({ agent, selectedModels, onToggleModel, onRefreshModel
           {isRefreshing ? 'Refreshing...' : 'Refresh models'}
         </button>
       </div>
-      <div className="flex flex-wrap gap-2">
-        {agent.availableModels.length === 0 && (
-          <span className="text-xs text-[var(--text-muted)]">No models — click Refresh</span>
-        )}
-        {agent.availableModels.map((model) => {
-          const isSelected = selectedModels.has(model.dbId);
-          return (
-            <button
-              key={model.dbId}
-              onClick={() => onToggleModel(agent.id, model.dbId)}
-              className={`font-mono text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                isSelected
-                  ? 'bg-[var(--accent-dim)] text-[var(--accent)] border-[var(--accent)]'
-                  : 'text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--text-secondary)]'
-              }`}
-            >
-              {model.name}
-            </button>
-          );
-        })}
-      </div>
+
+      {agent.availableModels.length === 0 ? (
+        <span className="text-xs text-[var(--text-muted)]">No models — click Refresh</span>
+      ) : (
+        <ModelCombobox
+          models={agent.availableModels}
+          selected={selectedModels}
+          onToggle={handleToggle}
+        />
+      )}
     </div>
   );
 }

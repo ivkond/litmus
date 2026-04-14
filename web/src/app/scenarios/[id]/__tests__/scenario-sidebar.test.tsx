@@ -11,8 +11,10 @@ describe('ScenarioSidebar', () => {
     const data = {
       id: 'sc-1', slug: 'test', name: 'Test',
       description: null, version: 'v1', language: 'python',
-      tags: ['algo'], maxScore: 100, createdAt: '2026-03-29',
-      files: [{ key: 'prompt.txt', name: 'prompt.txt', size: 0 }],
+      tags: ['algo'], maxScore: 100,
+      prompt: 'Do the thing', task: null, scoring: null,
+      createdAt: '2026-03-29',
+      files: [],
       usage: { totalRuns: 5, avgScore: 78, bestScore: 95, worstScore: 40 },
     };
     const result = ScenarioSidebar({ data });

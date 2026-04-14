@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { AgentAuthSection } from './agent-auth-section';
 
 export interface AgentWithExecutors {
   id: string;
@@ -13,6 +14,7 @@ export interface AgentWithExecutors {
     agentId: string;
     type: string;
     agentSlug: string;
+    agentType: string;
     binaryPath: string | null;
     healthCheck: string | null;
     config: unknown;
@@ -35,6 +37,7 @@ export function AgentForm({ agent, onSave, onCancel }: Props) {
     version: agent?.version ?? '',
     type: executor?.type ?? 'docker',
     agentSlug: executor?.agentSlug ?? '',
+    agentType: executor?.agentType ?? '',
     binaryPath: executor?.binaryPath ?? '',
     healthCheck: executor?.healthCheck ?? '',
   });
@@ -45,7 +48,7 @@ export function AgentForm({ agent, onSave, onCancel }: Props) {
   // In edit mode without executor, slug is editable (new executor will be created).
   // In create mode, slug is always editable.
   const slugLocked = isEdit && !!executor;
-  const canSave = form.name.trim() !== '' && form.agentSlug.trim() !== '';
+  const canSave = form.name.trim() !== '' && form.agentSlug.trim() !== '' && form.agentType.trim() !== '';
 
   const handleSave = useCallback(async () => {
     if (!canSave) return;
@@ -61,6 +64,7 @@ export function AgentForm({ agent, onSave, onCancel }: Props) {
         executor: {
           type: form.type,
           agentSlug: form.agentSlug,
+          agentType: form.agentType,
           binaryPath: form.binaryPath || undefined,
           healthCheck: form.healthCheck || undefined,
         },
@@ -124,18 +128,17 @@ export function AgentForm({ agent, onSave, onCancel }: Props) {
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label htmlFor="agent-slug" className={labelClass}>Agent Slug</label>
-          <input
-            id="agent-slug"
-            value={form.agentSlug}
-            onChange={(e) => setForm((f) => ({ ...f, agentSlug: e.target.value }))}
-            placeholder="e.g. claude-code"
+          <label htmlFor="agent-type" className={labelClass}>Agent Type</label>
+          <select
+            id="agent-type"
+            value={form.agentType}
+            onChange={(e) => setForm((f) => ({ ...f, agentType: e.target.value }))}
             className={inputClass}
-            disabled={slugLocked}
-          />
-          {slugLocked && (
-            <span className="text-[10px] text-[var(--text-muted)]">Slug cannot be changed after creation</span>
-          )}
+          >
+            <option value="">Select type…</option>
+            <option value="cursor">Cursor</option>
+            <option value="mock">Mock</option>
+          </select>
         </div>
         <div>
           <label htmlFor="executor-type" className={labelClass}>Executor Type</label>
@@ -149,6 +152,23 @@ export function AgentForm({ agent, onSave, onCancel }: Props) {
             <option value="host">Host</option>
             <option value="kubernetes">Kubernetes</option>
           </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label htmlFor="agent-slug" className={labelClass}>Agent Slug</label>
+          <input
+            id="agent-slug"
+            value={form.agentSlug}
+            onChange={(e) => setForm((f) => ({ ...f, agentSlug: e.target.value }))}
+            placeholder="e.g. claude-code"
+            className={inputClass}
+            disabled={slugLocked}
+          />
+          {slugLocked && (
+            <span className="text-[10px] text-[var(--text-muted)]">Slug cannot be changed after creation</span>
+          )}
         </div>
       </div>
 
@@ -175,6 +195,8 @@ export function AgentForm({ agent, onSave, onCancel }: Props) {
           className={inputClass}
         />
       </div>
+
+      {isEdit && executor && <AgentAuthSection agentId={agent.id} />}
 
       <div className="flex justify-end gap-2 pt-2">
         <button
