@@ -28,13 +28,17 @@ export async function GET(
   `;
   const stats = (statsRows as Array<Record<string, unknown>>)[0] ?? {};
 
-  // Files from S3
-  const keys = await listFiles(BUCKETS.scenarios, `${scenario.slug}/`);
-  const files: ScenarioFile[] = keys.map((key) => ({
-    key: key.replace(`${scenario.slug}/`, ''),
-    name: key.replace(`${scenario.slug}/`, ''),
-    size: 0,
-  }));
+  // Project files from S3 (prompt/task/scoring are in DB now)
+  let files: ScenarioFile[] = [];
+  try {
+    const keys = await listFiles(BUCKETS.scenarios, `${scenario.slug}/`);
+    files = keys
+      .map((key) => key.replace(`${scenario.slug}/`, ''))
+      .filter((rel) => rel.startsWith('project/'))
+      .map((rel) => ({ key: rel, name: rel, size: 0 }));
+  } catch (err) {
+    console.error(`[scenario GET] S3 listFiles failed for "${scenario.slug}/":`, err);
+  }
 
   const response: ScenarioDetailResponse = {
     id: scenario.id,
@@ -45,6 +49,9 @@ export async function GET(
     language: scenario.language,
     tags: scenario.tags,
     maxScore: scenario.maxScore,
+    prompt: scenario.prompt,
+    task: scenario.task,
+    scoring: scenario.scoring,
     createdAt: scenario.createdAt?.toISOString() ?? new Date().toISOString(),
     files,
     usage: {
@@ -77,6 +84,9 @@ export async function PUT(
   if (body.language !== undefined) updates.language = body.language;
   if (body.tags !== undefined) updates.tags = body.tags;
   if (body.maxScore !== undefined) updates.maxScore = body.maxScore;
+  if (body.prompt !== undefined) updates.prompt = body.prompt;
+  if (body.task !== undefined) updates.task = body.task;
+  if (body.scoring !== undefined) updates.scoring = body.scoring;
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json(existing);

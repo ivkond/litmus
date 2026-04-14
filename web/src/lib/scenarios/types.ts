@@ -20,6 +20,9 @@ export interface ScenarioDetailResponse {
   language: string | null;
   tags: string[] | null;
   maxScore: number | null;
+  prompt: string | null;
+  task: string | null;
+  scoring: string | null;
   createdAt: string;
   files: ScenarioFile[];
   usage: ScenarioUsageStats;

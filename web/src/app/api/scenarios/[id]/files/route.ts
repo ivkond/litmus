@@ -4,6 +4,8 @@ import { scenarios } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { downloadFile, uploadFile, BUCKETS } from '@/lib/s3';
 
+const DB_CONTENT_FILES = new Set(['prompt.txt', 'task.txt', 'scoring.csv']);
+
 function isS3NotFound(err: unknown): boolean {
   if (err instanceof Error) {
     const name = (err as Error & { name?: string }).name ?? '';
@@ -22,6 +24,13 @@ export async function GET(
 
   if (!filePath) {
     return NextResponse.json({ error: 'path query param required' }, { status: 400 });
+  }
+
+  if (DB_CONTENT_FILES.has(filePath)) {
+    return NextResponse.json(
+      { error: `${filePath} is now stored in the database. Use PUT /api/scenarios/{id} instead.` },
+      { status: 410 },
+    );
   }
 
   const [scenario] = await db.select().from(scenarios).where(eq(scenarios.id, id));
@@ -52,6 +61,13 @@ export async function PUT(
 
   if (!filePath || content === undefined) {
     return NextResponse.json({ error: 'path and content required' }, { status: 400 });
+  }
+
+  if (DB_CONTENT_FILES.has(filePath)) {
+    return NextResponse.json(
+      { error: `${filePath} is now stored in the database. Use PUT /api/scenarios/{id} instead.` },
+      { status: 410 },
+    );
   }
 
   const [scenario] = await db.select().from(scenarios).where(eq(scenarios.id, id));

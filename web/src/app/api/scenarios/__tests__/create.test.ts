@@ -83,14 +83,16 @@ describe('POST /api/scenarios', () => {
       body: JSON.stringify({
         slug: 'test',
         name: 'Test',
-        files: { 'prompt.txt': 'Write a hello world', 'task.txt': 'Complete the task' },
+        prompt: 'Write a hello world',
+        task: 'Complete the task',
+        files: { 'project/main.py': 'print("hi")', 'prompt.txt': 'ignored — DB field' },
       }),
     });
     const res = await POST(req);
     expect(res.status).toBe(201);
-    expect(mockUpload).toHaveBeenCalledTimes(2);
-    expect(mockUpload).toHaveBeenCalledWith('litmus-scenarios', 'test/prompt.txt', 'Write a hello world', 'text/plain');
-    expect(mockUpload).toHaveBeenCalledWith('litmus-scenarios', 'test/task.txt', 'Complete the task', 'text/plain');
+    // Only project/* files uploaded to S3; prompt.txt skipped (stored in DB)
+    expect(mockUpload).toHaveBeenCalledTimes(1);
+    expect(mockUpload).toHaveBeenCalledWith('litmus-scenarios', 'test/project/main.py', 'print("hi")', 'text/plain');
   });
 
   it('returns 409 when slug already exists', async () => {

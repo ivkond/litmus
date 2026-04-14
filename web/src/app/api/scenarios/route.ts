@@ -30,15 +30,19 @@ export async function POST(request: Request) {
         language: body.language ?? null,
         tags: body.tags ?? null,
         maxScore: body.maxScore ?? null,
+        prompt: body.prompt ?? null,
+        task: body.task ?? null,
+        scoring: body.scoring ?? null,
       })
       .returning();
 
-    // Upload initial files to S3 if provided
-    // body.files is an optional Record<string, string> of { filename: content }
+    // Upload project files to S3 if provided (prompt/task/scoring are in DB now)
     const files = body.files as Record<string, string> | undefined;
     if (files) {
       for (const [filename, content] of Object.entries(files)) {
-        await uploadFile(BUCKETS.scenarios, `${body.slug}/${filename}`, content, 'text/plain');
+        if (filename.startsWith('project/')) {
+          await uploadFile(BUCKETS.scenarios, `${body.slug}/${filename}`, content, 'text/plain');
+        }
       }
     }
 

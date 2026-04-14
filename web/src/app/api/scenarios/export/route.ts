@@ -42,14 +42,19 @@ export async function GET(request: Request) {
       description: s.description ?? undefined,
       tags: s.tags ?? undefined,
       maxScore: s.maxScore ?? undefined,
+      prompt: s.prompt ?? undefined,
+      task: s.task ?? undefined,
+      scoring: s.scoring ?? undefined,
     })),
   };
   zip.addFile('manifest.json', Buffer.from(JSON.stringify(manifest, null, 2)));
 
-  // Add files for each scenario
+  // Add project files for each scenario (prompt/task/scoring are in manifest now)
   for (const scenario of rows) {
     const keys = await listFiles(BUCKETS.scenarios, `${scenario.slug}/`);
     for (const key of keys) {
+      const rel = key.slice(scenario.slug.length + 1);
+      if (!rel.startsWith('project/')) continue;
       const buffer = await downloadFile(BUCKETS.scenarios, key);
       zip.addFile(key, buffer);
     }

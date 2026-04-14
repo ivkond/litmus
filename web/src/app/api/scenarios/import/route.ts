@@ -5,7 +5,7 @@ import { scenarios } from '@/db/schema';
 import { uploadFile, BUCKETS } from '@/lib/s3';
 
 interface PackManifest {
-  version: string;
+  version: string | number;
   scenarios: Array<{
     slug: string;
     name: string;
@@ -13,6 +13,9 @@ interface PackManifest {
     language: string;
     tags?: string[];
     maxScore?: number;
+    prompt?: string;
+    task?: string;
+    scoring?: string;
   }>;
 }
 
@@ -46,6 +49,9 @@ export async function POST(request: Request) {
         language: scenarioDef.language,
         tags: scenarioDef.tags,
         maxScore: scenarioDef.maxScore,
+        prompt: scenarioDef.prompt ?? null,
+        task: scenarioDef.task ?? null,
+        scoring: scenarioDef.scoring ?? null,
       })
       .onConflictDoUpdate({
         target: scenarios.slug,
@@ -55,13 +61,20 @@ export async function POST(request: Request) {
           language: scenarioDef.language,
           tags: scenarioDef.tags,
           maxScore: scenarioDef.maxScore,
+          prompt: scenarioDef.prompt ?? null,
+          task: scenarioDef.task ?? null,
+          scoring: scenarioDef.scoring ?? null,
         },
       });
 
+    // Upload only project files to S3 (prompt/task/scoring are in DB)
     const prefix = `${scenarioDef.slug}/`;
     for (const entry of entries) {
       if (entry.entryName.startsWith(prefix) && !entry.isDirectory) {
-        await uploadFile(BUCKETS.scenarios, entry.entryName, entry.getData());
+        const rel = entry.entryName.slice(prefix.length);
+        if (rel.startsWith('project/')) {
+          await uploadFile(BUCKETS.scenarios, entry.entryName, entry.getData());
+        }
       }
     }
 

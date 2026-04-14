@@ -4,7 +4,8 @@ import type { ScenarioListItem, ScenarioDetailResponse, ScenarioFile } from './t
 
 export async function fetchScenarioList(): Promise<ScenarioListItem[]> {
   const rows = await sql`
-    SELECT s.*,
+    SELECT s.id, s.slug, s.name, s.description, s.version, s.language, s.tags,
+           s.max_score, s.created_at,
            COUNT(rr.id) AS total_runs,
            AVG(CASE WHEN rr.status IN ('completed', 'failed') THEN rr.total_score END) AS avg_score
     FROM scenarios s
@@ -55,11 +56,10 @@ export async function fetchScenarioDetail(id: string): Promise<ScenarioDetailRes
   let files: ScenarioFile[] = [];
   try {
     const keys = await listFiles(BUCKETS.scenarios, `${slug}/`);
-    files = keys.map((key) => ({
-      key: key.replace(`${slug}/`, ''),
-      name: key.replace(`${slug}/`, ''),
-      size: 0,
-    }));
+    files = keys
+      .map((key) => key.replace(`${slug}/`, ''))
+      .filter((rel) => rel.startsWith('project/'))
+      .map((rel) => ({ key: rel, name: rel, size: 0 }));
   } catch (err) {
     console.error(`[fetchScenarioDetail] S3 listFiles failed for "${slug}/":`, err);
   }
@@ -73,6 +73,9 @@ export async function fetchScenarioDetail(id: string): Promise<ScenarioDetailRes
     language: (scenario.language as string | null) ?? null,
     tags: (scenario.tags as string[] | null) ?? null,
     maxScore: scenario.max_score != null ? Number(scenario.max_score) : null,
+    prompt: (scenario.prompt as string | null) ?? null,
+    task: (scenario.task as string | null) ?? null,
+    scoring: (scenario.scoring as string | null) ?? null,
     createdAt: String(scenario.created_at),
     files,
     usage: {
