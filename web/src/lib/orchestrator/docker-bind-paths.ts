@@ -14,7 +14,7 @@ function isAbsoluteOnAnyOS(p: string): boolean {
  */
 function joinHostPath(base: string, ...segments: string[]): string {
   if (WIN_ABS_RE.test(base)) {
-    const normalized = base.replace(/\\/g, '/').replace(/\/+$/, '');
+    const normalized = base.replaceAll('\\', '/').replace(/\/+$/, '');
     return [normalized, ...segments].join('/');
   }
   return path.resolve(base, ...segments);
@@ -34,7 +34,7 @@ function requireAbsoluteOnDockerHost(relativeDisplay: string, envName: string): 
  */
 function normalizeHostPath(p: string): string {
   if (WIN_ABS_RE.test(p)) {
-    const fwd = p.replace(/\\/g, '/').replace(/\/+/g, '/');
+    const fwd = p.replaceAll('\\', '/').replace(/\/+/g, '/');
     const drive = fwd[0].toLowerCase();
     return `/${drive}${fwd.slice(2)}`;
   }
