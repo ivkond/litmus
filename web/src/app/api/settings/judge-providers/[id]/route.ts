@@ -1,18 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { judgeProviders } from '@/db/schema';
-import { encrypt, decrypt } from '@/lib/judge/encryption';
+import { encrypt, maskKey } from '@/lib/judge/encryption';
 import { eq } from 'drizzle-orm';
-
-function maskKey(encryptedKey: string): string {
-  try {
-    const plain = decrypt(encryptedKey);
-    if (plain.length <= 8) return '••••';
-    return '••••' + plain.slice(-4);
-  } catch {
-    return '••••';
-  }
-}
 
 export async function PUT(
   request: Request,
