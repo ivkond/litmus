@@ -88,7 +88,7 @@ export async function assembleContext(runResultId: string): Promise<JudgeContext
 
   return {
     scenario: {
-      prompt: scenario?.description ?? '',
+      prompt: scenario?.prompt ?? scenario?.description ?? '',
       scoringCriteria: [],
     },
     execution: {
