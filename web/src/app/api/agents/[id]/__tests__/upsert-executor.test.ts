@@ -61,7 +61,7 @@ describe('PUT /api/agents/[id] — executor upsert', () => {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        executor: { type: 'docker', agentSlug: 'new-agent' },
+        executor: { type: 'docker', agentSlug: 'new-agent', agentType: 'mock' },
       }),
     });
     const response = await PUT(request, { params: Promise.resolve({ id: 'a1' }) });
