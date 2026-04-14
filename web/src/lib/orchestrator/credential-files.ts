@@ -13,6 +13,36 @@ export function validateTarPaths(paths: string[]): void {
   }
 }
 
+function validateTarContents(base64Tar: string, allowedPaths: string[]): void {
+  const binaryData = Buffer.from(base64Tar, 'base64');
+  const tarStr = binaryData.toString('binary');
+
+  const allowedSet = new Set(allowedPaths);
+  const lines = tarStr.split('\n');
+
+  for (const line of lines) {
+    if (!line.trim()) continue;
+
+    const parts = line.split(/\s+/);
+    if (parts.length < 6) continue;
+
+    const name = parts.slice(5).join(' ').replace(/->.*$/, '').replace(/\/+$/, '');
+
+    if (!name) continue;
+    if (name.startsWith('/')) {
+      throw new Error(`Tar contains absolute path: "${name}"`);
+    }
+    if (name.includes('..')) {
+      throw new Error(`Tar contains path traversal: "${name}"`);
+    }
+
+    const isAllowed = allowedSet.has(name) || allowedSet.has(name.replace(/^\.\//, ''));
+    if (!isAllowed && name !== '.' && name !== '') {
+      throw new Error(`Tar contains unexpected path: "${name}"`);
+    }
+  }
+}
+
 export async function extractCredentials(
   executor: AgentExecutor,
   handle: ExecutorHandle,
@@ -45,6 +75,8 @@ export async function restoreCredentialFiles(
 ): Promise<void> {
   for (const blob of blobs) {
     validateTarPaths(blob.credentialPaths);
+
+    validateTarContents(blob.base64Tar, blob.credentialPaths);
 
     const ih = await executor.exec(
       handle,
