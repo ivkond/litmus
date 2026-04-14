@@ -25,6 +25,20 @@ from textual.widgets.selection_list import Selection
 from ..run import get_scenario_ids
 from ._common import TEMPLATE_DIR, OpenWithScreen
 
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+SEL_SECTION_PROMPT = "#prompt-section"
+SEL_SECTION_TASK = "#task-section"
+SEL_SECTION_SCORING = "#scoring-section"
+SEL_SECTION_FILES = "#files-section"
+SEL_EDIT_SCORING = "#edit-scoring"
+SEL_SCENARIO_LIST = "#scenario-list"
+FILE_PROMPT = "prompt.txt"
+FILE_TASK = "task.txt"
+FILE_SCORING = "scoring.csv"
+
 
 class ScenariosScreen(Screen):
     BINDINGS = [
@@ -110,10 +124,10 @@ class ScenariosScreen(Screen):
     def on_mount(self) -> None:
         self.title = "Scenarios"
         # Hide detail sections until a scenario is selected
-        for sid in ("#prompt-section", "#task-section", "#scoring-section", "#files-section"):
+        for sid in (SEL_SECTION_PROMPT, SEL_SECTION_TASK, SEL_SECTION_SCORING, SEL_SECTION_FILES):
             self.query_one(sid).display = False
         self._scenario_ids = get_scenario_ids(TEMPLATE_DIR)
-        scenario_list = self.query_one("#scenario-list", OptionList)
+        scenario_list = self.query_one(SEL_SCENARIO_LIST, OptionList)
         for sid in self._scenario_ids:
             scenario_list.add_option(Option(sid, id=sid))
 
@@ -131,14 +145,14 @@ class ScenariosScreen(Screen):
         scenario_dir = TEMPLATE_DIR / scenario_id
 
         # Show sections
-        for sid in ("#prompt-section", "#task-section", "#scoring-section", "#files-section"):
+        for sid in (SEL_SECTION_PROMPT, SEL_SECTION_TASK, SEL_SECTION_SCORING, SEL_SECTION_FILES):
             self.query_one(sid).display = True
 
         # Title
         self.query_one("#detail-title", Label).update(scenario_id)
 
         # Prompt
-        prompt_file = scenario_dir / "prompt.txt"
+        prompt_file = scenario_dir / FILE_PROMPT
         prompt_text = (
             prompt_file.read_text(encoding="utf-8").strip()
             if prompt_file.is_file()
@@ -147,7 +161,7 @@ class ScenariosScreen(Screen):
         self.query_one("#prompt-content", Static).update(prompt_text)
 
         # Task
-        task_file = scenario_dir / "task.txt"
+        task_file = scenario_dir / FILE_TASK
         task_text = (
             task_file.read_text(encoding="utf-8").strip()
             if task_file.is_file()
@@ -158,7 +172,7 @@ class ScenariosScreen(Screen):
         # Scoring table
         table = self.query_one("#scoring-table", DataTable)
         table.clear(columns=True)
-        scoring_file = scenario_dir / "scoring.csv"
+        scoring_file = scenario_dir / FILE_SCORING
         if scoring_file.is_file():
             try:
                 reader = csv.DictReader(io.StringIO(scoring_file.read_text(encoding="utf-8")))
@@ -198,14 +212,14 @@ class ScenariosScreen(Screen):
         self.query_one("#detail-scroll", VerticalScroll).scroll_home()
 
     def _get_selected_id(self) -> str | None:
-        ol = self.query_one("#scenario-list", OptionList)
+        ol = self.query_one(SEL_SCENARIO_LIST, OptionList)
         idx = ol.highlighted
         if idx is None:
             return None
         return ol.get_option_at_index(idx).id
 
     def _refresh_list(self, select_id: str | None = None) -> None:
-        ol = self.query_one("#scenario-list", OptionList)
+        ol = self.query_one(SEL_SCENARIO_LIST, OptionList)
         ol.clear_options()
         self._scenario_ids = get_scenario_ids(TEMPLATE_DIR)
         for sid in self._scenario_ids:
@@ -242,7 +256,12 @@ class ScenariosScreen(Screen):
         if confirmed:
             self._refresh_list()
             # Hide detail sections
-            for sid in ("#prompt-section", "#task-section", "#scoring-section", "#files-section"):
+            for sid in (
+                SEL_SECTION_PROMPT,
+                SEL_SECTION_TASK,
+                SEL_SECTION_SCORING,
+                SEL_SECTION_FILES,
+            ):
                 self.query_one(sid).display = False
             self.query_one("#detail-title", Label).update("Select a scenario from the list")
 
@@ -497,13 +516,13 @@ class ScenarioEditScreen(Screen):
     def on_mount(self) -> None:
         self.title = "New scenario" if self._is_new else f"Edit: {self._scenario_id}"
         if self._is_new:
-            self.query_one("#edit-scoring", TextArea).load_text("criterion,score\n")
+            self.query_one(SEL_EDIT_SCORING, TextArea).load_text("criterion,score\n")
         else:
             assert self._scenario_id is not None
             scenario_dir = TEMPLATE_DIR / self._scenario_id
-            prompt_file = scenario_dir / "prompt.txt"
-            task_file = scenario_dir / "task.txt"
-            scoring_file = scenario_dir / "scoring.csv"
+            prompt_file = scenario_dir / FILE_PROMPT
+            task_file = scenario_dir / FILE_TASK
+            scoring_file = scenario_dir / FILE_SCORING
             if prompt_file.is_file():
                 self.query_one("#edit-prompt", TextArea).load_text(
                     prompt_file.read_text(encoding="utf-8")
@@ -513,7 +532,7 @@ class ScenarioEditScreen(Screen):
                     task_file.read_text(encoding="utf-8")
                 )
             if scoring_file.is_file():
-                self.query_one("#edit-scoring", TextArea).load_text(
+                self.query_one(SEL_EDIT_SCORING, TextArea).load_text(
                     scoring_file.read_text(encoding="utf-8")
                 )
 
@@ -528,11 +547,11 @@ class ScenarioEditScreen(Screen):
 
         prompt_text = self.query_one("#edit-prompt", TextArea).text
         task_text = self.query_one("#edit-task", TextArea).text
-        scoring_text = self.query_one("#edit-scoring", TextArea).text
+        scoring_text = self.query_one(SEL_EDIT_SCORING, TextArea).text
 
-        (scenario_dir / "prompt.txt").write_text(prompt_text, encoding="utf-8")
-        (scenario_dir / "task.txt").write_text(task_text, encoding="utf-8")
-        (scenario_dir / "scoring.csv").write_text(scoring_text, encoding="utf-8")
+        (scenario_dir / FILE_PROMPT).write_text(prompt_text, encoding="utf-8")
+        (scenario_dir / FILE_TASK).write_text(task_text, encoding="utf-8")
+        (scenario_dir / FILE_SCORING).write_text(scoring_text, encoding="utf-8")
 
         # Ensure project/ dir exists
         (scenario_dir / "project").mkdir(exist_ok=True)

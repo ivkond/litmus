@@ -40,6 +40,7 @@ from ._common import RESULTS_DIR, TEMPLATE_DIR, ModelSelectionList, OpenWithScre
 
 _ID_AMP_MODELS_LABEL = "#amp-models-label"
 _ID_RC_SCENARIOS = "#rc-scenarios"
+_ID_RP_TABLE = "#rp-table"
 
 
 class AgentModelPickerScreen(Screen):
@@ -498,7 +499,7 @@ class RunProgressScreen(Screen):
     def on_mount(self) -> None:
         self.app.active_run = self._state  # type: ignore[attr-defined]
         self.title = "Running..."
-        table = self.query_one("#rp-table", DataTable)
+        table = self.query_one(_ID_RP_TABLE, DataTable)
         cols = table.add_columns("#", "Agent", "Model", "Scenario", "Status", "Time")
         self._col_status = cols[4]
         self._col_time = cols[5]
@@ -640,7 +641,7 @@ class RunProgressScreen(Screen):
             self.query_one("#rp-progress", ProgressBar).update(progress=st.done_count)
             style = RunState.STYLE_MAP.get(status, "")
             time_str = f"{elapsed:.1f}s" if elapsed is not None else "-"
-            table = self.query_one("#rp-table", DataTable)
+            table = self.query_one(_ID_RP_TABLE, DataTable)
             table.update_cell(str(idx), self._col_status, Text(status, style=style))
             table.update_cell(str(idx), self._col_time, time_str)
             total = len(st.tasks)
@@ -655,7 +656,7 @@ class RunProgressScreen(Screen):
         self.notify(f"Finished: {done} passed, {failed} failed. Reports generated.")
 
     def _get_cursor_idx(self) -> int | None:
-        table = self.query_one("#rp-table", DataTable)
+        table = self.query_one(_ID_RP_TABLE, DataTable)
         idx = table.cursor_row
         if idx is not None and idx < len(self._state.tasks):
             return idx
