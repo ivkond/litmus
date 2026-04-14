@@ -49,8 +49,7 @@ Deferred tasks from code review (2026-03-24).
 
 ## Web
 
-- [ ] **Agent health check: verify agent image/binary, not just Docker daemon.**
-  Current `DockerExecutor.healthCheck()` only calls `docker.ping()` — reports "healthy" even for nonexistent agents. Should verify that the Docker image for `agentSlug` exists (`docker.getImage(slug).inspect()`). For `host` type, verify `binaryPath` is executable.
+- [x] **Agent health check: verify agent image/binary, not just Docker daemon.** (done 2026-04-15)
 
 - [ ] **Agent soft-delete / archiving.**
   DELETE returns 409 when agent has `run_results` or `run_tasks`. Design `archived_at` column + filter archived agents from active queries, allowing cleanup without losing historical data.
