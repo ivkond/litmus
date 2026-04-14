@@ -13,6 +13,7 @@ const updateAgentSchema = z.object({
   executor: z.object({
     type: z.enum(['docker', 'host', 'kubernetes']).optional(),
     agentSlug: z.string().min(1).optional(),
+    agentType: z.string().min(1).optional(),
     binaryPath: z.string().optional(),
     healthCheck: z.string().optional(),
     config: z.record(z.string(), z.unknown()).optional(),
@@ -62,9 +63,9 @@ export async function PUT(
         .where(eq(agentExecutors.id, existing[0].id));
     } else {
       // No executor exists — fail-fast if required fields are missing
-      if (!executor.type || !executor.agentSlug) {
+      if (!executor.type || !executor.agentSlug || !executor.agentType) {
         return NextResponse.json(
-          { error: 'executor.type and executor.agentSlug are required to create a new executor' },
+          { error: 'executor.type, executor.agentSlug and executor.agentType are required to create a new executor' },
           { status: 400 },
         );
       }
@@ -74,6 +75,7 @@ export async function PUT(
           agentId: id,
           type: executor.type,
           agentSlug: executor.agentSlug,
+          agentType: executor.agentType,
           binaryPath: executor.binaryPath,
           healthCheck: executor.healthCheck,
           config: executor.config ?? {},

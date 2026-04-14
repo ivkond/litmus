@@ -21,6 +21,7 @@ const createAgentSchema = z.object({
   executor: z.object({
     type: z.enum(['docker', 'host', 'kubernetes']),
     agentSlug: z.string().min(1),
+    agentType: z.string().min(1),
     binaryPath: z.string().optional(),
     healthCheck: z.string().optional(),
     config: z.record(z.string(), z.unknown()).optional(),
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
       agentId: agent.id,
       type: executor.type,
       agentSlug: executor.agentSlug,
+      agentType: executor.agentType,
       binaryPath: executor.binaryPath,
       healthCheck: executor.healthCheck,
       config: executor.config ?? {},
