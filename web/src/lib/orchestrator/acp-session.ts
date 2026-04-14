@@ -78,6 +78,50 @@ export class AcpSession {
     return session;
   }
 
+  /**
+   * Start an ACP session and return the initialize response alongside the session.
+   * Used during auth discovery to extract authMethods from the init response.
+   */
+  static async startForDiscovery(
+    executor: AgentExecutor,
+    handle: ExecutorHandle,
+    acpConfig: AcpAgentConfig,
+  ): Promise<{ session: AcpSession; initResponse: Record<string, unknown> }> {
+    const proc = await executor.exec(handle, acpConfig.acpCmd);
+
+    const stdinWeb = Writable.toWeb(proc.stdin) as WritableStream<Uint8Array>;
+    const stdoutWeb = Readable.toWeb(proc.stdout) as ReadableStream<Uint8Array>;
+    const stream = acp.ndJsonStream(stdinWeb, stdoutWeb);
+
+    let session: AcpSession;
+
+    const connection = new acp.ClientSideConnection((_agent) => {
+      return {
+        sessionUpdate: async (notification: acp.SessionNotification) => {
+          session.handleSessionUpdate(notification);
+        },
+        requestPermission: async (params: acp.RequestPermissionRequest) => {
+          const firstOption = params.options?.[0];
+          return {
+            outcome: firstOption
+              ? { outcome: 'selected' as const, optionId: firstOption.optionId }
+              : { outcome: 'cancelled' as const },
+          } satisfies acp.RequestPermissionResponse;
+        },
+      };
+    }, stream);
+
+    session = new AcpSession(connection, proc);
+
+    const initResponse = await connection.initialize({
+      protocolVersion: acp.PROTOCOL_VERSION,
+      clientInfo: { name: 'litmus', version: '1.0.0' },
+      clientCapabilities: acpConfig.capabilities ?? {},
+    });
+
+    return { session, initResponse: initResponse as unknown as Record<string, unknown> };
+  }
+
   // ── Prompt ─────────────────────────────────────────────────
 
   async prompt(params: PromptParams): Promise<AgentResult> {

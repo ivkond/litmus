@@ -10,6 +10,9 @@ import {
 import { env } from '@/lib/env';
 import { getDecryptedSecretsForExecutor } from '@/lib/agents/secrets';
 import { collect } from '@/lib/orchestrator/collect';
+import { AcpSession } from '@/lib/orchestrator/acp-session';
+import { resolveAcpConfig } from '@/lib/orchestrator/acp-config';
+import { extractAuthMethods } from '@/lib/agents/auth-discovery';
 
 interface DiscoveredModel {
   id: string;
@@ -56,6 +59,42 @@ export async function POST(
   });
 
   try {
+    // ── Phase 1: ACP Auth Discovery ──────────────────────────────
+    // Start ACP session to extract authMethods from initialize response.
+    // If ACP init fails, set authMethods to null and continue with model discovery.
+    const acpConfig = resolveAcpConfig(executor.agentType);
+    let discoveredAuthMethods: unknown = null;
+
+    try {
+      const { session, initResponse } = await AcpSession.startForDiscovery(
+        docker, handle, acpConfig,
+      );
+
+      // Semantics: [] = discovery succeeded with zero methods; null = discovery
+      // not yet performed or failed. We reached this branch only after ACP init
+      // succeeded, so we store the array as-is (even when empty).
+      discoveredAuthMethods = extractAuthMethods(initResponse);
+
+      // Close ACP session — we only needed the init response
+      await session.close();
+    } catch (acpError) {
+      console.warn(
+        `[models] ACP auth discovery failed for agent "${executor.agentType}":`,
+        acpError instanceof Error ? acpError.message : String(acpError),
+      );
+      // discoveredAuthMethods stays null — ACP init failed
+    }
+
+    // Cache auth methods to executor row
+    await db
+      .update(agentExecutors)
+      .set({
+        authMethods: discoveredAuthMethods,
+        authMethodsDiscoveredAt: new Date(),
+      })
+      .where(eq(agentExecutors.id, executor.id));
+
+    // ── Phase 2: Model Discovery (existing logic) ────────────────
     const result = await collect(docker, handle, ['/opt/agent/models.sh']);
 
     if (result.exitCode !== 0) {
