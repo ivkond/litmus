@@ -26,6 +26,8 @@ from ..agents import (
 from ._common import FilterInput
 
 _ID_MODEL_LIST = "#model-list"
+_ID_LOADING_AREA = "#loading-area"
+_ID_MODELS_BODY = "#models-body"
 
 
 class ModelsScreen(Screen):
@@ -118,11 +120,11 @@ class ModelsScreen(Screen):
         cached = load_cache()
         if cached is not None:
             detected, not_found_names = cached
-            self.query_one("#loading-area").display = False
-            self.query_one("#models-body").display = True
+            self.query_one(_ID_LOADING_AREA).display = False
+            self.query_one(_ID_MODELS_BODY).display = True
             self._apply_detected(detected, not_found_names)
         else:
-            self.query_one("#models-body").display = False
+            self.query_one(_ID_MODELS_BODY).display = False
             self._start_scan()
 
     # --- Scanning ---
@@ -147,8 +149,8 @@ class ModelsScreen(Screen):
         not_found_names: list[str],
     ) -> None:
         self._scanning = False
-        self.query_one("#loading-area").display = False
-        self.query_one("#models-body").display = True
+        self.query_one(_ID_LOADING_AREA).display = False
+        self.query_one(_ID_MODELS_BODY).display = True
         self._apply_detected(detected, not_found_names)
         self.notify("Agent scan complete")
 
@@ -285,8 +287,8 @@ class ModelsScreen(Screen):
         if self._scanning:
             self.notify("Scan already in progress", severity="warning")
             return
-        self.query_one("#loading-area").display = True
-        self.query_one("#models-body").display = False
+        self.query_one(_ID_LOADING_AREA).display = True
+        self.query_one(_ID_MODELS_BODY).display = False
         self._start_scan()
 
     def action_back(self) -> None:

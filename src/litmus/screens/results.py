@@ -12,6 +12,13 @@ from ._common import RESULTS_DIR, OpenWithScreen
 from .analysis import AnalysisModal
 from .run import RunDetailScreen
 
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+SEL_RESULTS_TABLE = "#rb-scenarios-table"
+LEGACY_LABEL = "(legacy runs)"
+
 
 class ResultsBrowserScreen(Screen):
     """Browse previous test run sessions from results/ directory."""
@@ -84,7 +91,7 @@ class ResultsBrowserScreen(Screen):
     def on_mount(self) -> None:
         self.title = "Results"
         self._load_sessions()
-        table = self.query_one("#rb-scenarios-table", DataTable)
+        table = self.query_one(SEL_RESULTS_TABLE, DataTable)
         table.add_columns("Scenario", "Status", "Steps", "Has logs")
         table.cursor_type = "row"
 
@@ -110,7 +117,7 @@ class ResultsBrowserScreen(Screen):
                 legacy.append(name)
 
         if legacy:
-            sessions.append("(legacy runs)")
+            sessions.append(LEGACY_LABEL)
 
         self._sessions = sessions
         for s in sessions:
@@ -147,10 +154,10 @@ class ResultsBrowserScreen(Screen):
         ol = self.query_one("#rb-runs-list", OptionList)
         ol.clear_options()
         self._runs = []
-        table = self.query_one("#rb-scenarios-table", DataTable)
+        table = self.query_one(SEL_RESULTS_TABLE, DataTable)
         table.clear()
 
-        if session_id == "(legacy runs)":
+        if session_id == LEGACY_LABEL:
             session_dir = RESULTS_DIR
             # Legacy runs are flat agent_model dirs directly in results/
             for d in sorted(session_dir.iterdir()):
@@ -176,12 +183,12 @@ class ResultsBrowserScreen(Screen):
             return
         self._current_run = run_id
 
-        if self._current_session == "(legacy runs)":
+        if self._current_session == LEGACY_LABEL:
             run_dir = RESULTS_DIR / run_id
         else:
             run_dir = RESULTS_DIR / self._current_session / run_id
 
-        table = self.query_one("#rb-scenarios-table", DataTable)
+        table = self.query_one(SEL_RESULTS_TABLE, DataTable)
         table.clear()
 
         self.query_one("#rb-detail-title", Label).update(f"Run: {run_id}")
@@ -237,7 +244,7 @@ class ResultsBrowserScreen(Screen):
         if not scenario_id:
             return
 
-        if self._current_session == "(legacy runs)":
+        if self._current_session == LEGACY_LABEL:
             work_dir = RESULTS_DIR / self._current_run / scenario_id
         else:
             work_dir = RESULTS_DIR / self._current_session / self._current_run / scenario_id
@@ -250,7 +257,7 @@ class ResultsBrowserScreen(Screen):
             self.app.push_screen(RunDetailScreen(agent, model, scenario_id, work_dir))
 
     def action_report(self) -> None:
-        if not self._current_session or self._current_session == "(legacy runs)":
+        if not self._current_session or self._current_session == LEGACY_LABEL:
             self.notify("Select a session first", severity="warning")
             return
         session_dir = RESULTS_DIR / self._current_session
@@ -272,7 +279,7 @@ class ResultsBrowserScreen(Screen):
             self.notify("No data to generate report", severity="warning")
 
     def action_analysis(self) -> None:
-        if not self._current_session or self._current_session == "(legacy runs)":
+        if not self._current_session or self._current_session == LEGACY_LABEL:
             self.notify("Select a session first", severity="warning")
             return
         cfg = load_analysis_config()
@@ -287,7 +294,7 @@ class ResultsBrowserScreen(Screen):
 
     def action_open(self) -> None:
         if self._current_run:
-            if self._current_session == "(legacy runs)":
+            if self._current_session == LEGACY_LABEL:
                 path = RESULTS_DIR / self._current_run
             else:
                 path = RESULTS_DIR / self._current_session / self._current_run

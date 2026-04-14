@@ -1,0 +1,89 @@
+<h2>Litmus Web — System Architecture</h2>
+<p class="subtitle">Docker Compose deployment with host agent orchestration</p>
+
+<div class="mockup">
+  <div class="mockup-header">Container Architecture</div>
+  <div class="mockup-body" style="padding: 24px; font-family: monospace; font-size: 13px; line-height: 1.6;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+      <!-- Next.js -->
+      <div style="border: 2px solid #f97316; border-radius: 8px; padding: 16px; background: rgba(249,115,22,0.08);">
+        <div style="font-weight: bold; color: #f97316; margin-bottom: 8px;">litmus-web</div>
+        <div style="font-size: 11px; color: #999; margin-bottom: 8px;">Next.js 15 (App Router)</div>
+        <div style="font-size: 11px;">
+          <div style="padding: 3px 0;">UI: React + Tailwind</div>
+          <div style="padding: 3px 0;">API: Server Actions</div>
+          <div style="padding: 3px 0;">SSE: Progress stream</div>
+          <div style="padding: 3px 0;">Drizzle ORM</div>
+        </div>
+        <div style="margin-top: 8px; font-size: 10px; color: #666;">:3000</div>
+      </div>
+
+      <!-- Postgres -->
+      <div style="border: 2px solid #3b82f6; border-radius: 8px; padding: 16px; background: rgba(59,130,246,0.08);">
+        <div style="font-weight: bold; color: #3b82f6; margin-bottom: 8px;">postgres</div>
+        <div style="font-size: 11px; color: #999; margin-bottom: 8px;">PostgreSQL 16</div>
+        <div style="font-size: 11px;">
+          <div style="padding: 3px 0;">run_results</div>
+          <div style="padding: 3px 0;">agents</div>
+          <div style="padding: 3px 0;">scenarios (meta)</div>
+          <div style="padding: 3px 0;">aggregated_scores</div>
+        </div>
+        <div style="margin-top: 8px; font-size: 10px; color: #666;">:5432</div>
+      </div>
+
+      <!-- Garage -->
+      <div style="border: 2px solid #10b981; border-radius: 8px; padding: 16px; background: rgba(16,185,129,0.08);">
+        <div style="font-weight: bold; color: #10b981; margin-bottom: 8px;">garage</div>
+        <div style="font-size: 11px; color: #999; margin-bottom: 8px;">S3-compatible storage</div>
+        <div style="font-size: 11px;">
+          <div style="padding: 3px 0;">scenarios/ (prompts, tests)</div>
+          <div style="padding: 3px 0;">artifacts/ (logs, code)</div>
+          <div style="padding: 3px 0;">packs/ (.litmus-pack)</div>
+        </div>
+        <div style="margin-top: 8px; font-size: 10px; color: #666;">:3900 (S3) :3902 (web)</div>
+      </div>
+    </div>
+
+    <!-- Data flows -->
+    <div style="border-top: 1px solid #333; padding-top: 16px; margin-top: 8px;">
+      <div style="font-weight: bold; margin-bottom: 12px; color: #ccc;">Data Flows</div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 11px;">
+        <div style="padding: 8px; border: 1px solid #444; border-radius: 6px;">
+          <span style="color: #f97316;">litmus-web</span> &rarr; <span style="color: #3b82f6;">postgres</span><br/>
+          <span style="color: #888;">Scores, metrics, aggregations, agent configs</span>
+        </div>
+        <div style="padding: 8px; border: 1px solid #444; border-radius: 6px;">
+          <span style="color: #f97316;">litmus-web</span> &rarr; <span style="color: #10b981;">garage</span><br/>
+          <span style="color: #888;">Scenario files, run artifacts, logs, code</span>
+        </div>
+        <div style="padding: 8px; border: 1px solid #444; border-radius: 6px;">
+          <span style="color: #f97316;">litmus-web</span> &rarr; <span style="color: #facc15;">host</span><br/>
+          <span style="color: #888;">Agent execution via Docker socket / SSH</span>
+        </div>
+        <div style="padding: 8px; border: 1px solid #444; border-radius: 6px;">
+          <span style="color: #facc15;">agent container</span> &rarr; <span style="color: #f97316;">litmus-web</span><br/>
+          <span style="color: #888;">Results reconciliation callback</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Host layer -->
+    <div style="border-top: 1px dashed #555; padding-top: 16px; margin-top: 16px;">
+      <div style="font-weight: bold; margin-bottom: 12px; color: #facc15;">Host Machine</div>
+      <div style="display: flex; gap: 12px; font-size: 11px;">
+        <div style="padding: 8px 12px; border: 1px dashed #facc15; border-radius: 6px; flex: 1;">
+          <div style="color: #facc15;">Agent Binaries</div>
+          <div style="color: #888;">claude, aider, opencode, kilocode...</div>
+        </div>
+        <div style="padding: 8px 12px; border: 1px dashed #facc15; border-radius: 6px; flex: 1;">
+          <div style="color: #facc15;">Agent Docker Images</div>
+          <div style="color: #888;">litmus/agent-claude, litmus/agent-aider...</div>
+        </div>
+        <div style="padding: 8px 12px; border: 1px dashed #facc15; border-radius: 6px; flex: 1;">
+          <div style="color: #facc15;">Docker Socket</div>
+          <div style="color: #888;">/var/run/docker.sock</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

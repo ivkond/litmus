@@ -1,0 +1,85 @@
+@import 'tailwindcss';
+
+/* ─── Lab Instrument Design System ──────────────────────────── */
+/* Fonts loaded via next/font in layout.tsx which sets --font-mono and --font-sans
+   CSS variables on the <html> element via className. Do NOT re-declare them here
+   or the next/font optimized font-face names will be overridden. */
+
+/* ─── Dark Theme (default) ─── */
+html[data-theme='dark'],
+html:not([data-theme]) {
+  --bg-base: #0C0E12;
+  --bg-raised: #12151B;
+  --bg-overlay: #1A1D25;
+  --bg-hover: #22252F;
+  --text-primary: #E8E9ED;
+  --text-secondary: #8B8FA3;
+  --text-muted: #555970;
+  --accent: #D4A041;
+  --accent-dim: rgba(212, 160, 65, 0.12);
+  --border: #1E2130;
+  --lens-ranking: #6B8AFF;
+  --lens-ranking-bg: rgba(107, 138, 255, 0.12);
+  --lens-detail: #5EC4B6;
+  --lens-detail-bg: rgba(94, 196, 182, 0.12);
+  --score-excellent: #3DD68C;
+  --score-excellent-bg: rgba(61, 214, 140, 0.18);
+  --score-good: #7BC67E;
+  --score-good-bg: rgba(123, 198, 126, 0.13);
+  --score-mid: #C9B44E;
+  --score-mid-bg: rgba(201, 180, 78, 0.13);
+  --score-poor: #D4763A;
+  --score-poor-bg: rgba(212, 118, 58, 0.13);
+  --score-fail: #C94444;
+  --score-fail-bg: rgba(201, 68, 68, 0.13);
+}
+
+/* ─── Light Theme (Pastel) ─── */
+html[data-theme='light'] {
+  --bg-base: #FAF9F7;
+  --bg-raised: #FFFFFF;
+  --bg-overlay: #F3F1ED;
+  --bg-hover: #EBE9E4;
+  --text-primary: #2C2C30;
+  --text-secondary: #6E6E7A;
+  --text-muted: #A5A5B0;
+  --accent: #C49335;
+  --accent-dim: rgba(196, 147, 53, 0.08);
+  --border: #E0DDD7;
+  --lens-ranking: #7B96E8;
+  --lens-ranking-bg: #E8EDFB;
+  --lens-detail: #6BB8AD;
+  --lens-detail-bg: #DEF2EF;
+  --score-excellent: #2D7A4A;
+  --score-excellent-bg: #D5F0E2;
+  --score-good: #4E8A52;
+  --score-good-bg: #E4F2E5;
+  --score-mid: #8D7B2A;
+  --score-mid-bg: #F5F0D8;
+  --score-poor: #A85E2A;
+  --score-poor-bg: #F8E8D8;
+  --score-fail: #A8393B;
+  --score-fail-bg: #F8DEDE;
+}
+
+/* ─── Base styles ─── */
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+  }
+
+  /* Grid background texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.3;
+  }
+}

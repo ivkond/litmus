@@ -1,0 +1,14 @@
+agents:
+- name: TestAgent
+  binary: /usr/bin/test-agent
+  cmd_template: test-agent --model {model} {message}
+  models:
+  - model-a
+  - model-b
+- name: EmptyAgent
+  binary: /usr/bin/empty
+  cmd_template: empty {model} {message}
+analysis:
+  model: openai/gpt-4o
+  api_key: sk-test-key-123
+  base_url: https://api.example.com/v1/

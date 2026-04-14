@@ -29,6 +29,16 @@ from .report import _CSS, _collect_run, escape_html
 log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
+# HTML constants
+# ---------------------------------------------------------------------------
+
+COLOR_OK = "var(--ok)"
+COLOR_WARN = "var(--warn)"
+COLOR_FAIL = "var(--fail)"
+COLOR_MUTED = "var(--muted)"
+TR_CLOSE = "</tr>"
+
+# ---------------------------------------------------------------------------
 # Criteria definitions
 # ---------------------------------------------------------------------------
 
@@ -484,12 +494,21 @@ def _call_llm(
 
 def _score_color(score: int | None) -> str:
     if score is None:
-        return "var(--muted)"
+        return COLOR_MUTED
     if score >= 8:
-        return "var(--ok)"
+        return COLOR_OK
     if score >= 5:
-        return "var(--warn)"
-    return "var(--fail)"
+        return COLOR_WARN
+    return COLOR_FAIL
+
+
+def _pct_color(pct: float) -> str:
+    """Convert percentage to color based on thresholds."""
+    if pct >= 80:
+        return COLOR_OK
+    if pct >= 50:
+        return COLOR_WARN
+    return COLOR_FAIL
 
 
 def _score_bg(score: int | None) -> str:
@@ -540,8 +559,8 @@ def _build_eval_table(
             color = _score_color(round(avg))
             cells.append(f'<td class="score-cell" style="color:{color}">{avg:.1f}</td>')
         else:
-            cells.append('<td class="score-cell" style="color:var(--muted)">—</td>')
-        rows.append("<tr>" + "".join(cells) + "</tr>")
+            cells.append(f'<td class="score-cell" style="color:{COLOR_MUTED}">—</td>')
+        rows.append("<tr>" + "".join(cells) + TR_CLOSE)
 
     # Summary row: avg + confidence per name
     summary_cells = ['<td style="font-weight:700">Average</td>']
@@ -558,11 +577,11 @@ def _build_eval_table(
             conf_pct = f"{confidence * 100:.0f}%"
             summary_cells.append(
                 f'<td class="score-cell" style="color:{color};border-top:2px solid var(--border)">'
-                f'{avg:.1f} <small style="color:var(--muted)">({conf_pct})</small></td>'
+                f'{avg:.1f} <small style="color:{COLOR_MUTED}">({conf_pct})</small></td>'
             )
         else:
             summary_cells.append(
-                '<td class="score-cell" style="color:var(--muted);border-top:2px solid var(--border)">—</td>'
+                f'<td class="score-cell" style="color:{COLOR_MUTED};border-top:2px solid var(--border)">—</td>'
             )
     if all_avgs:
         total_avg = sum(all_avgs) / len(all_avgs)
@@ -607,7 +626,7 @@ def _build_task_table(task_scores: dict[str, dict[str, ScenarioEvaluation]]) -> 
             total_got += ev.total_score
             total_max += ev.max_score
             pct = (ev.total_score / ev.max_score * 100) if ev.max_score else 0
-            color = "var(--ok)" if pct >= 80 else "var(--warn)" if pct >= 50 else "var(--fail)"
+            color = _pct_color(pct)
             tips = []
             for cname, cs in ev.criteria.items():
                 icon = "+" if cs.met else "-"
@@ -619,14 +638,14 @@ def _build_task_table(task_scores: dict[str, dict[str, ScenarioEvaluation]]) -> 
             )
         if total_max:
             pct = total_got / total_max * 100
-            color = "var(--ok)" if pct >= 80 else "var(--warn)" if pct >= 50 else "var(--fail)"
+            color = _pct_color(pct)
             cells.append(
                 f'<td class="score-cell" style="color:{color};border-left:2px solid var(--border)">'
                 f"{total_got}/{total_max} ({pct:.0f}%)</td>"
             )
         else:
             cells.append('<td class="cell empty">&mdash;</td>')
-        rows.append("<tr>" + "".join(cells) + "</tr>")
+        rows.append("<tr>" + "".join(cells) + TR_CLOSE)
 
     return (
         f'<div class="table-wrap"><table><thead>{header}</thead>'

@@ -10,6 +10,8 @@ from pathlib import Path, PurePosixPath
 
 from .manifest import CURRENT_FORMAT_VERSION, Manifest, ScenarioEntry
 
+MANIFEST_FILE = "manifest.json"
+
 # Directories and extensions to skip during export
 _SKIP_DIRS = {"__pycache__", ".pytest_cache", ".venv"}
 _SKIP_SUFFIXES = {".pyc", ".pyo"}
@@ -62,7 +64,7 @@ def export_scenarios(
             entries.append(ScenarioEntry(stem=stem, files=rel_paths))
 
         manifest = Manifest.for_scenarios(entries)
-        zf.writestr("manifest.json", manifest.to_json())
+        zf.writestr(MANIFEST_FILE, manifest.to_json())
 
     return output_path.resolve()
 
@@ -85,10 +87,10 @@ def import_scenarios(
 
     with zipfile.ZipFile(zip_path, "r") as zf:
         # Read & validate manifest
-        if "manifest.json" not in zf.namelist():
-            raise PackError("Archive has no manifest.json — not a valid scenario pack")
+        if MANIFEST_FILE not in zf.namelist():
+            raise PackError(f"Archive has no {MANIFEST_FILE} — not a valid scenario pack")
 
-        manifest = Manifest.from_json(zf.read("manifest.json").decode("utf-8"))
+        manifest = Manifest.from_json(zf.read(MANIFEST_FILE).decode("utf-8"))
 
         if manifest.format_version > CURRENT_FORMAT_VERSION:
             raise PackError(

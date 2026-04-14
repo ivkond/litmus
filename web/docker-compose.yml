@@ -1,0 +1,130 @@
+name: litmus # Pins the project name so volume/network names are deterministic
+
+services:
+  # Builds litmus/runtime-python:latest for the run engine (scheduler / agent lanes).
+  # One-shot so Compose still produces the image without leaving a sleeping container.
+  litmus-runtime-python:
+    image: litmus/runtime-python:latest
+    build:
+      context: ./agents/runtime
+      dockerfile: Dockerfile
+    restart: "no"
+    command: ["true"]
+
+  litmus-web:
+    build: .
+    ports: ["3000:3000"]
+    environment:
+      HOST: 0.0.0.0
+      DATABASE_URL: postgres://litmus:litmus@postgres:5432/litmus
+      S3_ENDPOINT: http://garage:3900
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_REGION: garage
+      DOCKER_HOST: tcp://docker-socket-proxy:2375
+      REDIS_URL: redis://valkey:6379
+      LITMUS_ENCRYPTION_KEY: ${LITMUS_ENCRYPTION_KEY:-}
+      WORK_ROOT: /var/litmus/work
+      # Host paths for Docker binds (must be absolute on the machine running Docker, not paths inside the web container).
+      # AGENTS_HOST_DIR = web project root (parent of the agents/ folder), not .../agents itself.
+      AGENTS_HOST_DIR: ${AGENTS_HOST_DIR:?Set AGENTS_HOST_DIR to the host-absolute web directory (e.g. /home/user/litmus/web)}
+      WORK_HOST_DIR: ${WORK_HOST_DIR:?Set WORK_HOST_DIR to the host-absolute path of ./work (e.g. /home/user/litmus/web/work)}
+    volumes:
+      - ./agents:/opt/agent:ro
+      - ./work:/var/litmus/work
+    networks:
+      - litmus-internal
+      - litmus-host
+      - litmus-agents # so compose creates the network; web needs it to spawn agent containers
+    depends_on:
+      litmus-runtime-python:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      garage:
+        condition: service_started
+      docker-socket-proxy:
+        condition: service_started
+      valkey:
+        condition: service_healthy
+
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    environment:
+      CONTAINERS: 1
+      IMAGES: 1
+      NETWORKS: 1
+      EXEC: 1
+      POST: 1
+      VOLUMES: 0
+      SWARM: 0
+      NODES: 0
+      SERVICES: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - litmus-internal
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: litmus
+      POSTGRES_USER: litmus
+      POSTGRES_PASSWORD: litmus
+    ports: ["5432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U litmus"]
+      interval: 5s
+      retries: 5
+    networks:
+      - litmus-internal
+      - litmus-host # host port publishing (internal: true blocks it)
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    command: valkey-server --appendonly yes --appendfsync everysec
+    volumes:
+      - valkey-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - litmus-internal
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  garage:
+    image: dxflrs/garage:v1.1.0
+    ports:
+      - "3900:3900"
+      - "3902:3902"
+    volumes:
+      - garage-data:/var/lib/garage/data
+      - garage-meta:/var/lib/garage/meta
+      - ./garage.toml:/etc/garage.toml
+    networks:
+      - litmus-internal
+      - litmus-host # host port publishing
+
+networks:
+  litmus-internal:
+    internal: true
+  litmus-host:
+    driver: bridge
+    # postgres + garage join this network solely for host port publishing
+    # (ports: directives don't work on internal-only networks)
+  litmus-agents:
+    name: litmus-agents # exact name used by the orchestrator when spawning agent containers
+    driver: bridge
+    # agent containers only; outbound internet for LLM API calls
+    # no access to litmus-internal services
+
+volumes:
+  pgdata:
+  garage-data:
+  garage-meta:
+  valkey-data:

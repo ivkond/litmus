@@ -1,0 +1,3379 @@
+<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Litmus Benchmark — Leaderboard</title>
+<style>:root {
+  --bg:#fff;--surface:#f8f9fa;--surface-alt:#f1f3f5;--border:#dee2e6;
+  --text:#212529;--text-secondary:#495057;--muted:#868e96;
+  --ok:#2b8a3e;--ok-bg:#ebfbee;--warn:#e67700;--warn-bg:#fff9db;
+  --fail:#c92a2a;--fail-bg:#fff5f5;--accent:#1864ab;--accent-bg:#e7f5ff;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Segoe UI",system-ui,sans-serif;color:var(--text);background:var(--bg);
+  line-height:1.5;padding:1.5rem 2rem;max-width:1440px;margin:0 auto;font-size:.875rem}
+code,.mono{font-family:"Cascadia Code","JetBrains Mono",monospace}
+h1{font-size:1.5rem;font-weight:700;margin-bottom:.25rem}
+h2{font-size:1.15rem;font-weight:600;border-bottom:2px solid var(--border);padding-bottom:.35rem;margin:1.5rem 0 .75rem}
+h3{font-size:.95rem;font-weight:600;margin:.75rem 0 .4rem;color:var(--text-secondary)}
+h4{font-size:.85rem;font-weight:600;margin:.6rem 0 .3rem}
+.meta{color:var(--muted);font-size:.85rem;margin-bottom:1.25rem}
+table{border-collapse:collapse;width:100%;margin-bottom:.75rem;font-size:.8rem}
+th{background:var(--surface-alt);text-transform:uppercase;font-size:.7rem;font-weight:600;letter-spacing:.03em;color:var(--text-secondary)}
+th,td{padding:.35rem .55rem;border:1px solid var(--border);text-align:left}
+td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td.center{text-align:center;white-space:nowrap}
+.pos-1{background:var(--accent-bg);font-weight:600}
+.badge{display:inline-block;padding:.1rem .4rem;border-radius:3px;font-size:.7rem;font-weight:600}
+.badge.ok{background:var(--ok-bg);color:var(--ok)}
+.badge.warn{background:var(--warn-bg);color:var(--warn)}
+.badge.fail{background:var(--fail-bg);color:var(--fail)}
+.dot{display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:1px;vertical-align:middle}
+.dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}.dot.fail{background:var(--fail)}
+.kpi-row{display:flex;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap}
+.kpi{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.75rem 1rem;flex:1;min-width:180px}
+.kpi-label{font-size:.7rem;text-transform:uppercase;color:var(--muted);font-weight:600;letter-spacing:.04em}
+.kpi-value{font-size:1.75rem;font-weight:700;color:var(--text)}
+.kpi-sub{font-size:.75rem;color:var(--text-secondary)}
+.bar-wrap{background:var(--surface);border-radius:3px;height:1.15rem;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;min-width:1px}
+.bar-fill.ok{background:var(--ok)}.bar-fill.warn{background:var(--warn)}.bar-fill.fail{background:var(--fail)}
+.sc-row{display:flex;align-items:center;gap:.4rem;margin-bottom:2px;font-size:.75rem}
+.sc-label{width:260px;min-width:260px;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sc-bar{flex:1}.sc-score{width:38px;min-width:38px;text-align:right;font-weight:600}
+.sc-time{width:60px;min-width:60px;text-align:right;color:var(--muted);font-size:.7rem}
+details{border:1px solid var(--border);border-radius:6px;margin:.6rem 0}
+summary{padding:.6rem .8rem;cursor:pointer;font-weight:500;font-size:.9rem}
+summary:hover{background:var(--surface)}
+details[open] summary{border-bottom:1px solid var(--border)}
+details>div{padding:.8rem}
+.cell-fast{background:var(--ok-bg)}.cell-slow{background:var(--fail-bg)}
+.ct{margin-bottom:.6rem;width:100%}
+.ct td{font-size:.75rem;vertical-align:top;white-space:normal}
+.ct .st{width:1.5rem;text-align:center;font-weight:700}
+.ct .m{color:var(--ok)}.ct .n{color:var(--fail)}
+.ct .sc{width:3rem;text-align:center;font-weight:600}
+.ct .cm{font-style:italic;color:var(--text-secondary);max-width:600px;word-break:break-word}
+.conclusions li{margin-bottom:.35rem;line-height:1.55}
+@media print{
+  @page{size:A4 landscape;margin:10mm}
+  body{padding:0;font-size:10pt}
+  details{border:1px solid #ccc}details>summary{display:none}
+  details>div{display:block!important}
+  .badge,.dot,.bar-fill,.cell-fast,.cell-slow{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}</style></head><body>
+<h1>Litmus Benchmark — Leaderboard</h1>
+<div class="meta">Дата: 2026-03-27 &middot; Источник: temp/ &middot; 12 пар модель+агент &times; 8 сценариев</div>
+<h2>Общий рейтинг</h2>
+<table><thead><tr><th>#</th><th>Модель</th><th>Агент</th><th>Сценарии</th>
+<th>Ср. балл</th><th>Общее время</th><th>Pass Rate</th><th>Overall</th></tr></thead><tbody>
+<tr class="pos-1"><td class="num">1</td><td>Composer 2</td><td>Cursor Agent</td><td style="white-space:nowrap"><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span></td><td class="num">10.00</td><td class="num">7 мин 20 сек</td><td class="num">8/8</td><td class="num"><strong>10.00</strong></td></tr>
+<tr class="pos-1"><td class="num">1</td><td>GPT-5.3 Codex Fast</td><td>Cursor Agent</td><td style="white-space:nowrap"><span class="dot ok" title="OK"></span><span class="dot warn" title="Warn"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span></td><td class="num">10.00</td><td class="num">9 мин 37 сек</td><td class="num">8/8</td><td class="num"><strong>10.00</strong></td></tr>
+<tr><td class="num">3</td><td>Claude Opus 4.6</td><td>Claude Code</td><td style="white-space:nowrap"><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot warn" title="Warn"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span></td><td class="num">9.50</td><td class="num">7 мин 3 сек</td><td class="num">8/8</td><td class="num"><strong>9.50</strong></td></tr>
+<tr><td class="num">3</td><td>opencode/mimo-v2-omni-free</td><td>OpenCode</td><td style="white-space:nowrap"><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot warn" title="Warn"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span></td><td class="num">9.50</td><td class="num">11 мин 3 сек</td><td class="num">8/8</td><td class="num"><strong>9.50</strong></td></tr>
+<tr><td class="num">5</td><td>opencode/mimo-v2-pro-free</td><td>OpenCode</td><td style="white-space:nowrap"><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot warn" title="Warn"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span></td><td class="num">9.38</td><td class="num">8 мин 13 сек</td><td class="num">8/8</td><td class="num"><strong>9.38</strong></td></tr>
+<tr><td class="num">6</td><td>Auto (Cursor)</td><td>Cursor Agent</td><td style="white-space:nowrap"><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot fail" title="Fail"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span></td><td class="num">9.00</td><td class="num">8 мин 18 сек</td><td class="num">7/8</td><td class="num"><strong>9.00</strong></td></tr>
+<tr><td class="num">7</td><td>moex-test/glm-4.7</td><td>OpenCode</td><td style="white-space:nowrap"><span class="dot ok" title="OK"></span><span class="dot fail" title="Fail"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot fail" title="Fail"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span></td><td class="num">8.50</td><td class="num">2 мин 33 сек</td><td class="num">6/8</td><td class="num"><strong>8.50</strong></td></tr>
+<tr><td class="num">8</td><td>opencode/minimax-m2.5-free</td><td>OpenCode</td><td style="white-space:nowrap"><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot fail" title="Fail"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span></td><td class="num">8.38</td><td class="num">10 мин 58 сек</td><td class="num">7/8</td><td class="num"><strong>8.38</strong></td></tr>
+<tr><td class="num">9</td><td>moex-test/glm-4.7</td><td>KiloCode</td><td style="white-space:nowrap"><span class="dot ok" title="OK"></span><span class="dot warn" title="Warn"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot fail" title="Fail"></span><span class="dot ok" title="OK"></span><span class="dot fail" title="Fail"></span></td><td class="num">8.12</td><td class="num">5 мин 21 сек</td><td class="num">6/8</td><td class="num"><strong>8.12</strong></td></tr>
+<tr><td class="num">9</td><td>kilo/nvidia/nemotron-3-super-120b-a12b:free</td><td>KiloCode</td><td style="white-space:nowrap"><span class="dot ok" title="OK"></span><span class="dot warn" title="Warn"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot fail" title="Fail"></span><span class="dot fail" title="Fail"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span></td><td class="num">8.12</td><td class="num">21 мин 43 сек</td><td class="num">6/8</td><td class="num"><strong>8.12</strong></td></tr>
+<tr><td class="num">11</td><td>kilo/x-ai/grok-code-fast-1:optimized:free</td><td>KiloCode</td><td style="white-space:nowrap"><span class="dot ok" title="OK"></span><span class="dot warn" title="Warn"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot ok" title="OK"></span><span class="dot fail" title="Fail"></span><span class="dot ok" title="OK"></span><span class="dot fail" title="Fail"></span></td><td class="num">7.75</td><td class="num">43 мин 47 сек</td><td class="num">6/8</td><td class="num"><strong>7.75</strong></td></tr>
+<tr><td class="num">12</td><td>GPT-5.4 Medium</td><td>Cursor Agent</td><td style="white-space:nowrap"><span class="dot ok" title="OK"></span><span class="dot warn" title="Warn"></span><span class="dot ok" title="OK"></span><span class="dot warn" title="Warn"></span><span class="dot fail" title="Fail"></span><span class="dot ok" title="OK"></span><span class="dot fail" title="Fail"></span><span class="dot ok" title="OK"></span></td><td class="num">7.38</td><td class="num">15 мин 51 сек</td><td class="num">6/8</td><td class="num"><strong>7.38</strong></td></tr>
+</tbody></table>
+<h2>Ключевые показатели</h2><div class="kpi-row">
+<div class="kpi"><div class="kpi-label">Лучшая модель</div><div class="kpi-value">10.00</div><div class="kpi-sub">Composer 2</div></div>
+<div class="kpi"><div class="kpi-label">Лучший агент (ср.)</div><div class="kpi-value">9.50</div><div class="kpi-sub">Claude Code</div></div>
+<div class="kpi"><div class="kpi-label">Ср. время на сценарий</div><div class="kpi-value">94.9s</div><div class="kpi-sub">по всем парам</div></div>
+<div class="kpi"><div class="kpi-label">Pass Rate (OK+Warn)</div><div class="kpi-value">88%</div><div class="kpi-sub">84 из 96 сценариев</div></div>
+</div>
+<h2>Сравнение по сценариям</h2>
+<h3>Data Structure: TimeBasedKeyValueStore с bisect, O(log n)</h3>
+<div class="sc-row"><span class="sc-label" title="moex-test/glm-4.7 / OpenCode">moex-test/glm-4.7 / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">16.8s</span></div>
+<div class="sc-row"><span class="sc-label" title="moex-test/glm-4.7 / KiloCode">moex-test/glm-4.7 / KiloCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">21.7s</span></div>
+<div class="sc-row"><span class="sc-label" title="kilo/x-ai/grok-code-fast-1:optimized:free / KiloCode">kilo/x-ai/grok-code-fast-1:optimized:free / KiloCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">24.9s</span></div>
+<div class="sc-row"><span class="sc-label" title="GPT-5.3 Codex Fast / Cursor Agent">GPT-5.3 Codex Fast / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">40.4s</span></div>
+<div class="sc-row"><span class="sc-label" title="Auto (Cursor) / Cursor Agent">Auto (Cursor) / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">48.1s</span></div>
+<div class="sc-row"><span class="sc-label" title="Claude Opus 4.6 / Claude Code">Claude Opus 4.6 / Claude Code</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">49.8s</span></div>
+<div class="sc-row"><span class="sc-label" title="Composer 2 / Cursor Agent">Composer 2 / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">52.5s</span></div>
+<div class="sc-row"><span class="sc-label" title="GPT-5.4 Medium / Cursor Agent">GPT-5.4 Medium / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">72.8s</span></div>
+<div class="sc-row"><span class="sc-label" title="opencode/mimo-v2-pro-free / OpenCode">opencode/mimo-v2-pro-free / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">72.9s</span></div>
+<div class="sc-row"><span class="sc-label" title="opencode/mimo-v2-omni-free / OpenCode">opencode/mimo-v2-omni-free / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">87.9s</span></div>
+<div class="sc-row"><span class="sc-label" title="kilo/nvidia/nemotron-3-super-120b-a12b:free / KiloCode">kilo/nvidia/nemotron-3-super-120b-a12b:free / KiloCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">458.3s</span></div>
+<div class="sc-row"><span class="sc-label" title="opencode/minimax-m2.5-free / OpenCode">opencode/minimax-m2.5-free / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:90%"></div></div></div><span class="sc-score">9/10</span><span class="sc-time">52.6s</span></div>
+<h3>Simple Architecture: REST API на FastAPI с Pydantic</h3>
+<div class="sc-row"><span class="sc-label" title="opencode/mimo-v2-pro-free / OpenCode">opencode/mimo-v2-pro-free / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">117.9s</span></div>
+<div class="sc-row"><span class="sc-label" title="Claude Opus 4.6 / Claude Code">Claude Opus 4.6 / Claude Code</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">120.5s</span></div>
+<div class="sc-row"><span class="sc-label" title="Composer 2 / Cursor Agent">Composer 2 / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">153.6s</span></div>
+<div class="sc-row"><span class="sc-label" title="Auto (Cursor) / Cursor Agent">Auto (Cursor) / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">174.0s</span></div>
+<div class="sc-row"><span class="sc-label" title="moex-test/glm-4.7 / KiloCode">moex-test/glm-4.7 / KiloCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">190.9s</span></div>
+<div class="sc-row"><span class="sc-label" title="GPT-5.3 Codex Fast / Cursor Agent">GPT-5.3 Codex Fast / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">229.6s</span></div>
+<div class="sc-row"><span class="sc-label" title="kilo/nvidia/nemotron-3-super-120b-a12b:free / KiloCode">kilo/nvidia/nemotron-3-super-120b-a12b:free / KiloCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">317.9s</span></div>
+<div class="sc-row"><span class="sc-label" title="opencode/mimo-v2-omni-free / OpenCode">opencode/mimo-v2-omni-free / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">344.1s</span></div>
+<div class="sc-row"><span class="sc-label" title="GPT-5.4 Medium / Cursor Agent">GPT-5.4 Medium / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">388.8s</span></div>
+<div class="sc-row"><span class="sc-label" title="opencode/minimax-m2.5-free / OpenCode">opencode/minimax-m2.5-free / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">441.3s</span></div>
+<div class="sc-row"><span class="sc-label" title="kilo/x-ai/grok-code-fast-1:optimized:free / KiloCode">kilo/x-ai/grok-code-fast-1:optimized:free / KiloCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">1884.5s</span></div>
+<div class="sc-row"><span class="sc-label" title="moex-test/glm-4.7 / OpenCode">moex-test/glm-4.7 / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill warn" style="width:60%"></div></div></div><span class="sc-score">6/10</span><span class="sc-time">63.6s</span></div>
+<h3>Complex Debug: Thread-safety bug (threading.Lock)</h3>
+<div class="sc-row"><span class="sc-label" title="moex-test/glm-4.7 / OpenCode">moex-test/glm-4.7 / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">16.5s</span></div>
+<div class="sc-row"><span class="sc-label" title="moex-test/glm-4.7 / KiloCode">moex-test/glm-4.7 / KiloCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">17.0s</span></div>
+<div class="sc-row"><span class="sc-label" title="opencode/minimax-m2.5-free / OpenCode">opencode/minimax-m2.5-free / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">28.4s</span></div>
+<div class="sc-row"><span class="sc-label" title="opencode/mimo-v2-pro-free / OpenCode">opencode/mimo-v2-pro-free / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">29.7s</span></div>
+<div class="sc-row"><span class="sc-label" title="Claude Opus 4.6 / Claude Code">Claude Opus 4.6 / Claude Code</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">36.0s</span></div>
+<div class="sc-row"><span class="sc-label" title="opencode/mimo-v2-omni-free / OpenCode">opencode/mimo-v2-omni-free / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">70.2s</span></div>
+<div class="sc-row"><span class="sc-label" title="Composer 2 / Cursor Agent">Composer 2 / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">73.9s</span></div>
+<div class="sc-row"><span class="sc-label" title="GPT-5.3 Codex Fast / Cursor Agent">GPT-5.3 Codex Fast / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">159.8s</span></div>
+<div class="sc-row"><span class="sc-label" title="Auto (Cursor) / Cursor Agent">Auto (Cursor) / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">168.9s</span></div>
+<div class="sc-row"><span class="sc-label" title="kilo/nvidia/nemotron-3-super-120b-a12b:free / KiloCode">kilo/nvidia/nemotron-3-super-120b-a12b:free / KiloCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">227.0s</span></div>
+<div class="sc-row"><span class="sc-label" title="kilo/x-ai/grok-code-fast-1:optimized:free / KiloCode">kilo/x-ai/grok-code-fast-1:optimized:free / KiloCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">638.2s</span></div>
+<div class="sc-row"><span class="sc-label" title="GPT-5.4 Medium / Cursor Agent">GPT-5.4 Medium / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:80%"></div></div></div><span class="sc-score">8/10</span><span class="sc-time">118.6s</span></div>
+<h3>Spec Compliance: frozen dataclass, формулы, edge cases</h3>
+<div class="sc-row"><span class="sc-label" title="moex-test/glm-4.7 / OpenCode">moex-test/glm-4.7 / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">14.6s</span></div>
+<div class="sc-row"><span class="sc-label" title="kilo/x-ai/grok-code-fast-1:optimized:free / KiloCode">kilo/x-ai/grok-code-fast-1:optimized:free / KiloCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">19.5s</span></div>
+<div class="sc-row"><span class="sc-label" title="Auto (Cursor) / Cursor Agent">Auto (Cursor) / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">21.3s</span></div>
+<div class="sc-row"><span class="sc-label" title="opencode/minimax-m2.5-free / OpenCode">opencode/minimax-m2.5-free / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">23.0s</span></div>
+<div class="sc-row"><span class="sc-label" title="moex-test/glm-4.7 / KiloCode">moex-test/glm-4.7 / KiloCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">24.9s</span></div>
+<div class="sc-row"><span class="sc-label" title="Claude Opus 4.6 / Claude Code">Claude Opus 4.6 / Claude Code</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">48.1s</span></div>
+<div class="sc-row"><span class="sc-label" title="GPT-5.3 Codex Fast / Cursor Agent">GPT-5.3 Codex Fast / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">50.6s</span></div>
+<div class="sc-row"><span class="sc-label" title="Composer 2 / Cursor Agent">Composer 2 / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">71.1s</span></div>
+<div class="sc-row"><span class="sc-label" title="opencode/mimo-v2-omni-free / OpenCode">opencode/mimo-v2-omni-free / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">73.9s</span></div>
+<div class="sc-row"><span class="sc-label" title="kilo/nvidia/nemotron-3-super-120b-a12b:free / KiloCode">kilo/nvidia/nemotron-3-super-120b-a12b:free / KiloCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">131.1s</span></div>
+<div class="sc-row"><span class="sc-label" title="GPT-5.4 Medium / Cursor Agent">GPT-5.4 Medium / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">252.3s</span></div>
+<div class="sc-row"><span class="sc-label" title="opencode/mimo-v2-pro-free / OpenCode">opencode/mimo-v2-pro-free / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:90%"></div></div></div><span class="sc-score">9/10</span><span class="sc-time">109.7s</span></div>
+<h3>Hallucination: Устойчивость к опечатке (mathplotlib -&gt; matplotlib)</h3>
+<div class="sc-row"><span class="sc-label" title="kilo/x-ai/grok-code-fast-1:optimized:free / KiloCode">kilo/x-ai/grok-code-fast-1:optimized:free / KiloCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">8.1s</span></div>
+<div class="sc-row"><span class="sc-label" title="moex-test/glm-4.7 / KiloCode">moex-test/glm-4.7 / KiloCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">9.7s</span></div>
+<div class="sc-row"><span class="sc-label" title="moex-test/glm-4.7 / OpenCode">moex-test/glm-4.7 / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">11.2s</span></div>
+<div class="sc-row"><span class="sc-label" title="Auto (Cursor) / Cursor Agent">Auto (Cursor) / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">13.5s</span></div>
+<div class="sc-row"><span class="sc-label" title="GPT-5.3 Codex Fast / Cursor Agent">GPT-5.3 Codex Fast / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">14.3s</span></div>
+<div class="sc-row"><span class="sc-label" title="Composer 2 / Cursor Agent">Composer 2 / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">21.5s</span></div>
+<div class="sc-row"><span class="sc-label" title="opencode/mimo-v2-omni-free / OpenCode">opencode/mimo-v2-omni-free / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">35.1s</span></div>
+<div class="sc-row"><span class="sc-label" title="Claude Opus 4.6 / Claude Code">Claude Opus 4.6 / Claude Code</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">44.3s</span></div>
+<div class="sc-row"><span class="sc-label" title="opencode/mimo-v2-pro-free / OpenCode">opencode/mimo-v2-pro-free / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">93.0s</span></div>
+<div class="sc-row"><span class="sc-label" title="opencode/minimax-m2.5-free / OpenCode">opencode/minimax-m2.5-free / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:80%"></div></div></div><span class="sc-score">8/10</span><span class="sc-time">13.9s</span></div>
+<div class="sc-row"><span class="sc-label" title="kilo/nvidia/nemotron-3-super-120b-a12b:free / KiloCode">kilo/nvidia/nemotron-3-super-120b-a12b:free / KiloCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill warn" style="width:50%"></div></div></div><span class="sc-score">5/10</span><span class="sc-time">24.9s</span></div>
+<div class="sc-row"><span class="sc-label" title="GPT-5.4 Medium / Cursor Agent">GPT-5.4 Medium / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill fail" style="width:30%"></div></div></div><span class="sc-score">3/10</span><span class="sc-time">37.5s</span></div>
+<h3>Tool Calling: JSON tool calls (создание файла)</h3>
+<div class="sc-row"><span class="sc-label" title="GPT-5.3 Codex Fast / Cursor Agent">GPT-5.3 Codex Fast / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">19.7s</span></div>
+<div class="sc-row"><span class="sc-label" title="Composer 2 / Cursor Agent">Composer 2 / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">19.9s</span></div>
+<div class="sc-row"><span class="sc-label" title="GPT-5.4 Medium / Cursor Agent">GPT-5.4 Medium / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:80%"></div></div></div><span class="sc-score">8/10</span><span class="sc-time">20.7s</span></div>
+<div class="sc-row"><span class="sc-label" title="opencode/mimo-v2-omni-free / OpenCode">opencode/mimo-v2-omni-free / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill warn" style="width:60%"></div></div></div><span class="sc-score">6/10</span><span class="sc-time">15.8s</span></div>
+<div class="sc-row"><span class="sc-label" title="opencode/mimo-v2-pro-free / OpenCode">opencode/mimo-v2-pro-free / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill warn" style="width:60%"></div></div></div><span class="sc-score">6/10</span><span class="sc-time">18.5s</span></div>
+<div class="sc-row"><span class="sc-label" title="Claude Opus 4.6 / Claude Code">Claude Opus 4.6 / Claude Code</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill warn" style="width:60%"></div></div></div><span class="sc-score">6/10</span><span class="sc-time">32.4s</span></div>
+<div class="sc-row"><span class="sc-label" title="moex-test/glm-4.7 / OpenCode">moex-test/glm-4.7 / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill fail" style="width:20%"></div></div></div><span class="sc-score">2/10</span><span class="sc-time">8.0s</span></div>
+<div class="sc-row"><span class="sc-label" title="Auto (Cursor) / Cursor Agent">Auto (Cursor) / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill fail" style="width:20%"></div></div></div><span class="sc-score">2/10</span><span class="sc-time">13.2s</span></div>
+<div class="sc-row"><span class="sc-label" title="moex-test/glm-4.7 / KiloCode">moex-test/glm-4.7 / KiloCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill fail" style="width:20%"></div></div></div><span class="sc-score">2/10</span><span class="sc-time">14.1s</span></div>
+<div class="sc-row"><span class="sc-label" title="kilo/x-ai/grok-code-fast-1:optimized:free / KiloCode">kilo/x-ai/grok-code-fast-1:optimized:free / KiloCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill fail" style="width:20%"></div></div></div><span class="sc-score">2/10</span><span class="sc-time">23.7s</span></div>
+<div class="sc-row"><span class="sc-label" title="opencode/minimax-m2.5-free / OpenCode">opencode/minimax-m2.5-free / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill fail" style="width:20%"></div></div></div><span class="sc-score">2/10</span><span class="sc-time">65.3s</span></div>
+<div class="sc-row"><span class="sc-label" title="kilo/nvidia/nemotron-3-super-120b-a12b:free / KiloCode">kilo/nvidia/nemotron-3-super-120b-a12b:free / KiloCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill fail" style="width:0%"></div></div></div><span class="sc-score">0/10</span><span class="sc-time">42.2s</span></div>
+<h3>Architecture Design: Архитектура кэша для 100k RPS</h3>
+<div class="sc-row"><span class="sc-label" title="moex-test/glm-4.7 / OpenCode">moex-test/glm-4.7 / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">12.7s</span></div>
+<div class="sc-row"><span class="sc-label" title="kilo/x-ai/grok-code-fast-1:optimized:free / KiloCode">kilo/x-ai/grok-code-fast-1:optimized:free / KiloCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">15.6s</span></div>
+<div class="sc-row"><span class="sc-label" title="opencode/mimo-v2-omni-free / OpenCode">opencode/mimo-v2-omni-free / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">19.0s</span></div>
+<div class="sc-row"><span class="sc-label" title="moex-test/glm-4.7 / KiloCode">moex-test/glm-4.7 / KiloCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">29.1s</span></div>
+<div class="sc-row"><span class="sc-label" title="kilo/nvidia/nemotron-3-super-120b-a12b:free / KiloCode">kilo/nvidia/nemotron-3-super-120b-a12b:free / KiloCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">34.9s</span></div>
+<div class="sc-row"><span class="sc-label" title="Composer 2 / Cursor Agent">Composer 2 / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">35.7s</span></div>
+<div class="sc-row"><span class="sc-label" title="GPT-5.3 Codex Fast / Cursor Agent">GPT-5.3 Codex Fast / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">36.1s</span></div>
+<div class="sc-row"><span class="sc-label" title="opencode/mimo-v2-pro-free / OpenCode">opencode/mimo-v2-pro-free / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">38.7s</span></div>
+<div class="sc-row"><span class="sc-label" title="Auto (Cursor) / Cursor Agent">Auto (Cursor) / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">40.0s</span></div>
+<div class="sc-row"><span class="sc-label" title="Claude Opus 4.6 / Claude Code">Claude Opus 4.6 / Claude Code</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">68.3s</span></div>
+<div class="sc-row"><span class="sc-label" title="opencode/minimax-m2.5-free / OpenCode">opencode/minimax-m2.5-free / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:80%"></div></div></div><span class="sc-score">8/10</span><span class="sc-time">17.6s</span></div>
+<div class="sc-row"><span class="sc-label" title="GPT-5.4 Medium / Cursor Agent">GPT-5.4 Medium / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill fail" style="width:0%"></div></div></div><span class="sc-score">0/10</span><span class="sc-time">39.5s</span></div>
+<h3>Long Context: Поиск токена в длинном файле</h3>
+<div class="sc-row"><span class="sc-label" title="moex-test/glm-4.7 / OpenCode">moex-test/glm-4.7 / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">9.5s</span></div>
+<div class="sc-row"><span class="sc-label" title="Composer 2 / Cursor Agent">Composer 2 / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">11.7s</span></div>
+<div class="sc-row"><span class="sc-label" title="opencode/mimo-v2-pro-free / OpenCode">opencode/mimo-v2-pro-free / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">12.3s</span></div>
+<div class="sc-row"><span class="sc-label" title="opencode/minimax-m2.5-free / OpenCode">opencode/minimax-m2.5-free / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">15.8s</span></div>
+<div class="sc-row"><span class="sc-label" title="opencode/mimo-v2-omni-free / OpenCode">opencode/mimo-v2-omni-free / OpenCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">16.8s</span></div>
+<div class="sc-row"><span class="sc-label" title="Auto (Cursor) / Cursor Agent">Auto (Cursor) / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">19.5s</span></div>
+<div class="sc-row"><span class="sc-label" title="GPT-5.4 Medium / Cursor Agent">GPT-5.4 Medium / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">20.5s</span></div>
+<div class="sc-row"><span class="sc-label" title="Claude Opus 4.6 / Claude Code">Claude Opus 4.6 / Claude Code</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">23.3s</span></div>
+<div class="sc-row"><span class="sc-label" title="GPT-5.3 Codex Fast / Cursor Agent">GPT-5.3 Codex Fast / Cursor Agent</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">26.6s</span></div>
+<div class="sc-row"><span class="sc-label" title="kilo/nvidia/nemotron-3-super-120b-a12b:free / KiloCode">kilo/nvidia/nemotron-3-super-120b-a12b:free / KiloCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill ok" style="width:100%"></div></div></div><span class="sc-score">10/10</span><span class="sc-time">66.9s</span></div>
+<div class="sc-row"><span class="sc-label" title="moex-test/glm-4.7 / KiloCode">moex-test/glm-4.7 / KiloCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill fail" style="width:30%"></div></div></div><span class="sc-score">3/10</span><span class="sc-time">13.2s</span></div>
+<div class="sc-row"><span class="sc-label" title="kilo/x-ai/grok-code-fast-1:optimized:free / KiloCode">kilo/x-ai/grok-code-fast-1:optimized:free / KiloCode</span><div class="sc-bar"><div class="bar-wrap"><div class="bar-fill fail" style="width:0%"></div></div></div><span class="sc-score">0/10</span><span class="sc-time">12.3s</span></div>
+<h2>Таблица таймингов</h2><div style="overflow-x:auto"><table><thead><tr>
+<th>Модель</th><th>Агент</th>
+<th>Data Structu</th>
+<th>Simple Archi</th>
+<th>Complex Debu</th>
+<th>Spec Complia</th>
+<th>Hallucinatio</th>
+<th>Tool Calling</th>
+<th>Architecture</th>
+<th>Long Context</th>
+<th>Всего</th><th>Среднее</th><th>Retries</th></tr></thead><tbody>
+<tr><td style="white-space:nowrap">Composer 2</td><td>Cursor Agent</td>
+<td class="num">52.5s</td>
+<td class="num">153.6s</td>
+<td class="num">73.9s</td>
+<td class="num">71.1s</td>
+<td class="num">21.5s</td>
+<td class="num">19.9s</td>
+<td class="num">35.7s</td>
+<td class="num">11.7s</td>
+<td class="num">7 мин 20 сек</td>
+<td class="num">55.0s</td>
+<td class="num">1</td></tr>
+<tr><td style="white-space:nowrap">GPT-5.3 Codex Fast</td><td>Cursor Agent</td>
+<td class="num">40.4s</td>
+<td class="num">229.6s</td>
+<td class="num">159.8s</td>
+<td class="num">50.6s</td>
+<td class="num">14.3s</td>
+<td class="num">19.7s</td>
+<td class="num">36.1s</td>
+<td class="num">26.6s</td>
+<td class="num">9 мин 37 сек</td>
+<td class="num">72.1s</td>
+<td class="num">1</td></tr>
+<tr><td style="white-space:nowrap">Claude Opus 4.6</td><td>Claude Code</td>
+<td class="num">49.8s</td>
+<td class="num">120.5s</td>
+<td class="num">36.0s</td>
+<td class="num">48.1s</td>
+<td class="num">44.3s</td>
+<td class="num">32.4s</td>
+<td class="cell-slow num">68.3s</td>
+<td class="num">23.3s</td>
+<td class="num">7 мин 3 сек</td>
+<td class="num">52.8s</td>
+<td class="num">1</td></tr>
+<tr><td style="white-space:nowrap">opencode/mimo-v2-omni-free</td><td>OpenCode</td>
+<td class="num">87.9s</td>
+<td class="num">344.1s</td>
+<td class="num">70.2s</td>
+<td class="num">73.9s</td>
+<td class="num">35.1s</td>
+<td class="num">15.8s</td>
+<td class="num">19.0s</td>
+<td class="num">16.8s</td>
+<td class="num">11 мин 3 сек</td>
+<td class="num">82.9s</td>
+<td class="num">1</td></tr>
+<tr><td style="white-space:nowrap">opencode/mimo-v2-pro-free</td><td>OpenCode</td>
+<td class="num">72.9s</td>
+<td class="num">117.9s</td>
+<td class="num">29.7s</td>
+<td class="num">109.7s</td>
+<td class="cell-slow num">93.0s</td>
+<td class="num">18.5s</td>
+<td class="num">38.7s</td>
+<td class="num">12.3s</td>
+<td class="num">8 мин 13 сек</td>
+<td class="num">61.6s</td>
+<td class="num">3</td></tr>
+<tr><td style="white-space:nowrap">Auto (Cursor)</td><td>Cursor Agent</td>
+<td class="num">48.1s</td>
+<td class="num">174.0s</td>
+<td class="num">168.9s</td>
+<td class="num">21.3s</td>
+<td class="num">13.5s</td>
+<td class="num">13.2s</td>
+<td class="num">40.0s</td>
+<td class="num">19.5s</td>
+<td class="num">8 мин 18 сек</td>
+<td class="num">62.3s</td>
+<td class="num">2</td></tr>
+<tr><td style="white-space:nowrap">moex-test/glm-4.7</td><td>OpenCode</td>
+<td class="cell-fast num">16.8s</td>
+<td class="cell-fast num">63.6s</td>
+<td class="cell-fast num">16.5s</td>
+<td class="cell-fast num">14.6s</td>
+<td class="num">11.2s</td>
+<td class="cell-fast num">8.0s</td>
+<td class="cell-fast num">12.7s</td>
+<td class="cell-fast num">9.5s</td>
+<td class="num">2 мин 33 сек</td>
+<td class="num">19.1s</td>
+<td class="num">2</td></tr>
+<tr><td style="white-space:nowrap">opencode/minimax-m2.5-free</td><td>OpenCode</td>
+<td class="num">52.6s</td>
+<td class="num">441.3s</td>
+<td class="num">28.4s</td>
+<td class="num">23.0s</td>
+<td class="num">13.9s</td>
+<td class="cell-slow num">65.3s</td>
+<td class="num">17.6s</td>
+<td class="num">15.8s</td>
+<td class="num">10 мин 58 сек</td>
+<td class="num">82.2s</td>
+<td class="num">1</td></tr>
+<tr><td style="white-space:nowrap">moex-test/glm-4.7</td><td>KiloCode</td>
+<td class="num">21.7s</td>
+<td class="num">190.9s</td>
+<td class="num">17.0s</td>
+<td class="num">24.9s</td>
+<td class="num">9.7s</td>
+<td class="num">14.1s</td>
+<td class="num">29.1s</td>
+<td class="num">13.2s</td>
+<td class="num">5 мин 21 сек</td>
+<td class="num">40.1s</td>
+<td class="num">2</td></tr>
+<tr><td style="white-space:nowrap">kilo/nvidia/nemotron-3-super-120b-a12b:free</td><td>KiloCode</td>
+<td class="cell-slow num">458.3s</td>
+<td class="num">317.9s</td>
+<td class="num">227.0s</td>
+<td class="num">131.1s</td>
+<td class="num">24.9s</td>
+<td class="num">42.2s</td>
+<td class="num">34.9s</td>
+<td class="cell-slow num">66.9s</td>
+<td class="num">21 мин 43 сек</td>
+<td class="num">162.9s</td>
+<td class="num">1</td></tr>
+<tr><td style="white-space:nowrap">kilo/x-ai/grok-code-fast-1:optimized:free</td><td>KiloCode</td>
+<td class="num">24.9s</td>
+<td class="cell-slow num">1884.5s</td>
+<td class="cell-slow num">638.2s</td>
+<td class="num">19.5s</td>
+<td class="cell-fast num">8.1s</td>
+<td class="num">23.7s</td>
+<td class="num">15.6s</td>
+<td class="num">12.3s</td>
+<td class="num">43 мин 47 сек</td>
+<td class="num">328.4s</td>
+<td class="num">1</td></tr>
+<tr><td style="white-space:nowrap">GPT-5.4 Medium</td><td>Cursor Agent</td>
+<td class="num">72.8s</td>
+<td class="num">388.8s</td>
+<td class="num">118.6s</td>
+<td class="cell-slow num">252.3s</td>
+<td class="num">37.5s</td>
+<td class="num">20.7s</td>
+<td class="num">39.5s</td>
+<td class="num">20.5s</td>
+<td class="num">15 мин 51 сек</td>
+<td class="num">118.8s</td>
+<td class="num">2</td></tr>
+</tbody></table></div>
+<h2>Детали по сценариям</h2>
+<details><summary>1-data-structure. Data Structure — TimeBasedKeyValueStore с bisect, O(log n)</summary><div>
+<table><thead><tr><th>Модель</th><th>Агент</th><th>Вердикт</th>
+<th>Балл</th><th>Шаги</th><th>Время</th><th>Retries</th></tr></thead><tbody>
+<tr><td>Composer 2</td><td>Cursor Agent</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">52.5s</td>
+<td class="num">0</td></tr>
+<tr><td>GPT-5.3 Codex Fast</td><td>Cursor Agent</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">40.4s</td>
+<td class="num">0</td></tr>
+<tr><td>Claude Opus 4.6</td><td>Claude Code</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">49.8s</td>
+<td class="num">0</td></tr>
+<tr><td>opencode/mimo-v2-omni-free</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">87.9s</td>
+<td class="num">0</td></tr>
+<tr><td>opencode/mimo-v2-pro-free</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">72.9s</td>
+<td class="num">0</td></tr>
+<tr><td>Auto (Cursor)</td><td>Cursor Agent</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">48.1s</td>
+<td class="num">0</td></tr>
+<tr><td>moex-test/glm-4.7</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">16.8s</td>
+<td class="num">0</td></tr>
+<tr><td>opencode/minimax-m2.5-free</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">9/10</td>
+<td class="num">3</td>
+<td class="num">52.6s</td>
+<td class="num">0</td></tr>
+<tr><td>moex-test/glm-4.7</td><td>KiloCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">21.7s</td>
+<td class="num">0</td></tr>
+<tr><td>kilo/nvidia/nemotron-3-super-120b-a12b:free</td><td>KiloCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">458.3s</td>
+<td class="num">0</td></tr>
+<tr><td>kilo/x-ai/grok-code-fast-1:optimized:free</td><td>KiloCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">24.9s</td>
+<td class="num">0</td></tr>
+<tr><td>GPT-5.4 Medium</td><td>Cursor Agent</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">72.8s</td>
+<td class="num">0</td></tr>
+</tbody></table>
+<h3>Обоснование оценок</h3>
+<h4>Composer 2 / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Type hints(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 10: `self._data: dict[str, list[tuple[int, str]]] = {}`; method signatures: `set(self, key: str, value: str, timestamp: int) -&gt; None`, `get(self, key: str, timestamp: int) -&gt; str`; uses `from __future__ import annotations`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Логика get max timestamp&lt;=t(6)</td>
+<td class="sc">6</td>
+<td class="cm">main.py lines 24-27: `i = bisect_right(row, timestamp, key=lambda p: p[0]) - 1; if i &gt;= 0: return row[i][1]; return &quot;&quot;` — correctly finds max timestamp &lt;= t using bisect_right on tuple pairs</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Пустая строка при отсутствии(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 21: `if not row: return &quot;&quot;` when key absent or list empty; line 27: `return &quot;&quot;` when i&lt;0 (all timestamps &gt; query)</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Эффективная структура(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py: sorted list of (timestamp, value) tuples per key; bisect_right with key= for O(log n) get; set handles out-of-order timestamps with bisect_left+insert; agent log: &#x27;get O(log n), set O(n) из-за сдвига элементов (нормально для обычного списка)&#x27;</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Тесты проходят(1)</td>
+<td class="sc">1</td>
+<td class="cm">03_test.log: &#x27;3 passed in 0.01s&#x27; — test_basic PASSED, test_multiple_values PASSED, test_missing_key PASSED</td></tr>
+</tbody></table>
+<h4>GPT-5.3 Codex Fast / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Type hints в сигнатурах</td>
+<td class="sc">1</td>
+<td class="cm">dict[str, list[tuple[int, str]]] in __init__, all params typed</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Корректная логика get (max timestamp ≤ t)</td>
+<td class="sc">6</td>
+<td class="cm">bisect_right(history, (timestamp, chr(127))) - 1 finds max ts &lt;= t</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Пустая строка при отсутствии ключа</td>
+<td class="sc">1</td>
+<td class="cm">returns &#x27;&#x27; when key absent or index &lt; 0</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Подходящая структура данных (эффективность)</td>
+<td class="sc">1</td>
+<td class="cm">sorted list with bisect — O(log n) get</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Все автотесты проходят (3 теста)</td>
+<td class="sc">1</td>
+<td class="cm">3 passed in 0.01s</td></tr>
+</tbody></table>
+<h4>Claude Opus 4.6 / Claude Code — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Type hints(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 9: `def set(self, key: str, value: str, timestamp: int) -&gt; None`, line 16: `def get(self, key: str, timestamp: int) -&gt; str`, internal dicts typed as `dict[str, list[int]]`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Логика get max timestamp&lt;=t(6)</td>
+<td class="sc">6</td>
+<td class="cm">main.py lines 19-23: uses `bisect_right(timestamps, timestamp)`, then `idx-1` to get largest timestamp &lt;= t; agent log confirms &#x27;bisect_right returns index after last element &lt;= t, so idx-1 points to entry with largest timestamp that doesn&#x27;t exceed query&#x27;</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Пустая строка при отсутствии(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 18: `return &quot;&quot;` when key not found; line 22: `return &quot;&quot;` when idx==0 (all timestamps &gt; query)</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Эффективная структура(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py: two parallel lists per key (_timestamps, _values), O(log n) get via bisect_right, O(1) amortized set via append; agent log: &#x27;set is O(1) (append), get is O(log n) via binary search&#x27;</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Тесты проходят(1)</td>
+<td class="sc">1</td>
+<td class="cm">03_test.log: &#x27;3 passed in 0.01s&#x27; — test_basic PASSED, test_multiple_values PASSED, test_missing_key PASSED</td></tr>
+</tbody></table>
+<h4>opencode/mimo-v2-omni-free / OpenCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Type hints</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 6: `self._store: dict[str, List[Tuple[int, str]]] = {}`, set takes `key: str, value: str, timestamp: int`, get returns `str`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Logic get max timestamp&lt;=t</td>
+<td class="sc">6</td>
+<td class="cm">main.py line 20: `pos = bisect.bisect_right(entries, timestamp, key=lambda x: x[0])` then returns `entries[pos-1][1]`; uses bisect with key= param (Python 3.10+) for correct O(log n) lookup</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Empty string on missing</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 17 and 22: returns `&quot;&quot;` when key not in store and when pos==0</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Efficient structure</td>
+<td class="sc">1</td>
+<td class="cm">Uses `bisect.insort` for insertion and `bisect.bisect_right` with key= for O(log n) search; agent explicitly improved from `(timestamp, &#x27;\uffff&#x27;)` sentinel to the cleaner `key=lambda x: x[0]` approach</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Tests pass</td>
+<td class="sc">1</td>
+<td class="cm">03_test.log: `3 passed in 0.01s` — test_basic, test_multiple_values, test_missing_key all PASSED</td></tr>
+</tbody></table>
+<h4>opencode/mimo-v2-pro-free / OpenCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Type hints</td>
+<td class="sc">1</td>
+<td class="cm">main.py: `self._store: dict[str, list[tuple[int, str]]] = {}`, `set(self, key: str, value: str, timestamp: int) -&gt; None`, `get(self, key: str, timestamp: int) -&gt; str`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Logic get max timestamp&lt;=t</td>
+<td class="sc">6</td>
+<td class="cm">main.py line 17: `idx = bisect.bisect_right(entries, timestamp, key=lambda x: x[0]) - 1` — uses key= param (Python 3.10+) for clean O(log n) search without tuple sentinel</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Empty string on missing</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 14-15: `if key not in self._store: return &quot;&quot;` and line 18-19: `if idx &lt; 0: return &quot;&quot;`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Efficient structure</td>
+<td class="sc">1</td>
+<td class="cm">Uses `bisect.bisect_right` with key= for O(log n) lookup; append for insertion (assumes monotonic timestamps or accepts O(n) insertion) — agent explored multiple approaches before settling on this clean design</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Tests pass</td>
+<td class="sc">1</td>
+<td class="cm">03_test.log: `3 passed in 0.01s` — test_basic, test_multiple_values, test_missing_key all PASSED</td></tr>
+</tbody></table>
+<h4>Auto (Cursor) / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Type hints(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 6: `self._store: dict[str, tuple[list[int], list[str]]] = {}`; method signatures `set(self, key: str, value: str, timestamp: int) -&gt; None`, `get(self, key: str, timestamp: int) -&gt; str`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Логика get max timestamp&lt;=t(6)</td>
+<td class="sc">6</td>
+<td class="cm">main.py lines 22-25: `idx = bisect_right(timestamps, timestamp) - 1; if idx &lt; 0: return &quot;&quot;; return values[idx]` — correctly finds largest timestamp &lt;= t; agent log: &#x27;get возвращает значение с максимальным timestamp &lt;= переданному&#x27;</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Пустая строка при отсутствии(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 18: `return &quot;&quot;` when key not in self._store; line 23: `if idx &lt; 0: return &quot;&quot;`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Эффективная структура(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py: stores (timestamps, values) as separate lists per key, uses bisect_right for O(log n) lookup; note: set uses insert at sorted position (handles out-of-order timestamps), slightly more robust design</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Тесты проходят(1)</td>
+<td class="sc">1</td>
+<td class="cm">03_test.log: &#x27;3 passed in 0.01s&#x27; — test_basic PASSED, test_multiple_values PASSED, test_missing_key PASSED</td></tr>
+</tbody></table>
+<h4>moex-test/glm-4.7 / OpenCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Type hints в сигнатурах</td>
+<td class="sc">1</td>
+<td class="cm">dict/list/tuple annotations with Optional import</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Корректная логика get (max timestamp ≤ t)</td>
+<td class="sc">6</td>
+<td class="cm">bisect_right with (timestamp, \uffff) sentinel handles boundary correctly</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Пустая строка при отсутствии ключа</td>
+<td class="sc">1</td>
+<td class="cm">Returns &#x27;&#x27; for missing key or idx==0</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Подходящая структура данных (эффективность)</td>
+<td class="sc">1</td>
+<td class="cm">bisect.insort sorted list, O(log n) lookup</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Все автотесты проходят (3 теста)</td>
+<td class="sc">1</td>
+<td class="cm">3 passed in 0.01s</td></tr>
+</tbody></table>
+<h4>opencode/minimax-m2.5-free / OpenCode — 9/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Type hints</td>
+<td class="sc">1</td>
+<td class="cm">main.py: `self._store: dict[str, list[tuple[int, str]]] = {}`, `set(self, key: str, value: str, timestamp: int) -&gt; None`, `get(self, key: str, timestamp: int) -&gt; str`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Logic get max timestamp&lt;=t</td>
+<td class="sc">6</td>
+<td class="cm">main.py lines 18-20: extracts `timestamps = [ts for ts, _ in self._store[key]]`, then `idx = bisect_right(timestamps, timestamp) - 1`, returns `self._store[key][idx][1]` — correct O(log n) logic</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Empty string on missing</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 16-17: `if key not in self._store: return &quot;&quot;` and lines 20-21: `if idx &lt; 0: return &quot;&quot;`</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Efficient structure</td>
+<td class="sc">0</td>
+<td class="cm">main.py line 13: `self._store[key].sort(key=lambda x: x[0])` called on every `set` operation — O(n log n) insertion. Also builds a separate timestamps list on every `get` — O(n) per lookup for list comprehension before the O(log n) bisect. Not fully efficient structure.</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Tests pass</td>
+<td class="sc">1</td>
+<td class="cm">03_test.log: `3 passed in 0.01s` — test_basic, test_multiple_values, test_missing_key all PASSED</td></tr>
+</tbody></table>
+<h4>moex-test/glm-4.7 / KiloCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Type hints в сигнатурах</td>
+<td class="sc">1</td>
+<td class="cm">dict/list/tuple annotations plus Optional import in signatures</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Корректная логика get (max timestamp ≤ t)</td>
+<td class="sc">6</td>
+<td class="cm">bisect_right on timestamps list, idx-1 returns correct value</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Пустая строка при отсутствии ключа</td>
+<td class="sc">1</td>
+<td class="cm">Returns &#x27;&#x27; for missing key or when idx&lt;0</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Подходящая структура данных (эффективность)</td>
+<td class="sc">1</td>
+<td class="cm">Sorted list with bisect — O(log n) lookup</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Все автотесты проходят (3 теста)</td>
+<td class="sc">1</td>
+<td class="cm">3 passed in 0.01s</td></tr>
+</tbody></table>
+<h4>kilo/nvidia/nemotron-3-super-120b-a12b:free / KiloCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Type hints в сигнатурах</td>
+<td class="sc">1</td>
+<td class="cm">Dict[str, List[Tuple[int, str]]] in __init__, all params typed</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Корректная логика get (max timestamp ≤ t)</td>
+<td class="sc">6</td>
+<td class="cm">manual binary search (left/right) returns max ts&lt;=t</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Пустая строка при отсутствии ключа</td>
+<td class="sc">1</td>
+<td class="cm">returns &#x27;&#x27; when key absent or no valid entry found</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Подходящая структура данных (эффективность)</td>
+<td class="sc">1</td>
+<td class="cm">sorted list with binary search — O(log n)</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Все автотесты проходят (3 теста)</td>
+<td class="sc">1</td>
+<td class="cm">3 passed</td></tr>
+</tbody></table>
+<h4>kilo/x-ai/grok-code-fast-1:optimized:free / KiloCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Type hints в сигнатурах</td>
+<td class="sc">1</td>
+<td class="cm">Dict/List/Tuple annotations on set/get signatures</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Корректная логика get (max timestamp ≤ t)</td>
+<td class="sc">6</td>
+<td class="cm">bisect_right with key=lambda correctly finds max ts≤t</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Пустая строка при отсутствии ключа</td>
+<td class="sc">1</td>
+<td class="cm">Returns &#x27;&#x27; for missing key or when idx==0</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Подходящая структура данных (эффективность)</td>
+<td class="sc">1</td>
+<td class="cm">Sorted list with bisect, O(log n) operations</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Все автотесты проходят (3 теста)</td>
+<td class="sc">1</td>
+<td class="cm">3 passed in 0.01s</td></tr>
+</tbody></table>
+<h4>GPT-5.4 Medium / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Type hints в сигнатурах</td>
+<td class="sc">1</td>
+<td class="cm">dict[str, list[tuple[float, Any]]] in __init__, Optional params</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Корректная логика get (max timestamp ≤ t)</td>
+<td class="sc">6</td>
+<td class="cm">linear scan tracking result for ts&lt;=timestamp, correct</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Пустая строка при отсутствии ключа</td>
+<td class="sc">1</td>
+<td class="cm">returns &#x27;&#x27; when key absent or result is None</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Подходящая структура данных (эффективность)</td>
+<td class="sc">1</td>
+<td class="cm">sorted list used, O(n) scan (functional but less efficient than bisect)</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Все автотесты проходят (3 теста)</td>
+<td class="sc">1</td>
+<td class="cm">3 passed</td></tr>
+</tbody></table>
+</div></details>
+<details><summary>2-simple-architecture. Simple Architecture — REST API на FastAPI с Pydantic</summary><div>
+<table><thead><tr><th>Модель</th><th>Агент</th><th>Вердикт</th>
+<th>Балл</th><th>Шаги</th><th>Время</th><th>Retries</th></tr></thead><tbody>
+<tr><td>Composer 2</td><td>Cursor Agent</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">5</td>
+<td class="num">153.6s</td>
+<td class="num">1</td></tr>
+<tr><td>GPT-5.3 Codex Fast</td><td>Cursor Agent</td>
+<td><span class="badge warn">Warn</span></td>
+<td class="num">10/10</td>
+<td class="num">5</td>
+<td class="num">229.6s</td>
+<td class="num">1</td></tr>
+<tr><td>Claude Opus 4.6</td><td>Claude Code</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">5</td>
+<td class="num">120.5s</td>
+<td class="num">1</td></tr>
+<tr><td>opencode/mimo-v2-omni-free</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">5</td>
+<td class="num">344.1s</td>
+<td class="num">1</td></tr>
+<tr><td>opencode/mimo-v2-pro-free</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">7</td>
+<td class="num">117.9s</td>
+<td class="num">2</td></tr>
+<tr><td>Auto (Cursor)</td><td>Cursor Agent</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">7</td>
+<td class="num">174.0s</td>
+<td class="num">2</td></tr>
+<tr><td>moex-test/glm-4.7</td><td>OpenCode</td>
+<td><span class="badge fail">Fail</span></td>
+<td class="num">6/10</td>
+<td class="num">7</td>
+<td class="num">63.6s</td>
+<td class="num">2</td></tr>
+<tr><td>opencode/minimax-m2.5-free</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">5</td>
+<td class="num">441.3s</td>
+<td class="num">1</td></tr>
+<tr><td>moex-test/glm-4.7</td><td>KiloCode</td>
+<td><span class="badge warn">Warn</span></td>
+<td class="num">10/10</td>
+<td class="num">7</td>
+<td class="num">190.9s</td>
+<td class="num">2</td></tr>
+<tr><td>kilo/nvidia/nemotron-3-super-120b-a12b:free</td><td>KiloCode</td>
+<td><span class="badge warn">Warn</span></td>
+<td class="num">10/10</td>
+<td class="num">5</td>
+<td class="num">317.9s</td>
+<td class="num">1</td></tr>
+<tr><td>kilo/x-ai/grok-code-fast-1:optimized:free</td><td>KiloCode</td>
+<td><span class="badge warn">Warn</span></td>
+<td class="num">10/10</td>
+<td class="num">5</td>
+<td class="num">1884.5s</td>
+<td class="num">1</td></tr>
+<tr><td>GPT-5.4 Medium</td><td>Cursor Agent</td>
+<td><span class="badge warn">Warn</span></td>
+<td class="num">10/10</td>
+<td class="num">5</td>
+<td class="num">388.8s</td>
+<td class="num">1</td></tr>
+</tbody></table>
+<h3>Обоснование оценок</h3>
+<h4>Composer 2 / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>FastAPI app(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 6: `app = FastAPI(title=&#x27;Orders API&#x27;)`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Pydantic BaseModel(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py: `OrderCreate(BaseModel)` and `Order(BaseModel)` with `from pydantic import BaseModel, ConfigDict, Field, field_validator`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>POST creates(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 42-54: `@app.post(&#x27;/orders&#x27;, response_model=Order, status_code=200)` with global _next_id counter, constructs Order object and stores model_dump()</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>GET returns(2)</td>
+<td class="sc">2</td>
+<td class="cm">main.py lines 57-64: `@app.get(&#x27;/orders/{order_id}&#x27;, response_model=Order)` with Path(ge=1) validation; 05_test.log: test_get_order PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>404(2)</td>
+<td class="sc">2</td>
+<td class="cm">main.py lines 62-63: `if data is None: raise HTTPException(status_code=404, detail=&#x27;Заказ не найден&#x27;)`; 05_test.log: test_404 PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Validation(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 13: `model_config = ConfigDict(extra=&#x27;forbid&#x27;)`; Field validators: `user_id: int = Field(..., ge=1)`, `amount: float = Field(..., gt=0)`, `status: str = Field(..., min_length=1, max_length=128)`; custom field_validator for status stripping whitespace; RequestValidationError handler returns 400</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>All 4 tests pass(2)</td>
+<td class="sc">2</td>
+<td class="cm">05_test.log: &#x27;4 passed in 0.19s&#x27; — test_create_order PASSED, test_get_order PASSED, test_404 PASSED, test_validation_error PASSED</td></tr>
+</tbody></table>
+<h4>GPT-5.3 Codex Fast / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>FastAPI app</td>
+<td class="sc">1</td>
+<td class="cm">FastAPI() instantiated</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Pydantic BaseModel для Order</td>
+<td class="sc">1</td>
+<td class="cm">OrderCreate and Order use BaseModel</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>POST /orders создаёт заказ</td>
+<td class="sc">1</td>
+<td class="cm">@app.post(&#x27;/orders&#x27;) with status_code=200</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>GET /orders/{id} возвращает заказ</td>
+<td class="sc">2</td>
+<td class="cm">@app.get(&#x27;/orders/{id}&#x27;) returns order</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>GET для несуществующего id → 404</td>
+<td class="sc">2</td>
+<td class="cm">HTTPException 404 raised when not found</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Валидация (422/400 при неверных данных)</td>
+<td class="sc">1</td>
+<td class="cm">RequestValidationError → 400, extra=&#x27;forbid&#x27; on model</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Все 4 автотеста проходят через TestClient</td>
+<td class="sc">2</td>
+<td class="cm">4 passed after 1 retry (first run returned 201 not 200)</td></tr>
+</tbody></table>
+<h4>Claude Opus 4.6 / Claude Code — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>FastAPI app(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 4: `app = FastAPI()`; imports `from fastapi import FastAPI, HTTPException`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Pydantic BaseModel(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 11-23: `OrderCreate(BaseModel)` and `Order(BaseModel)` defined with Field validators</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>POST creates(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 26: `@app.post(&#x27;/orders&#x27;, response_model=Order)` with in-memory dict storage; after retry returns 200 (not 201)</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>GET returns(2)</td>
+<td class="sc">2</td>
+<td class="cm">main.py lines 35-39: `@app.get(&#x27;/orders/{order_id}&#x27;, response_model=Order)` with dict lookup; 05_test.log: test_get_order PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>404(2)</td>
+<td class="sc">2</td>
+<td class="cm">main.py line 38: `raise HTTPException(status_code=404, detail=&#x27;Order not found&#x27;)` when order_id not in orders; 05_test.log: test_404 PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Validation(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 12: `model_config = {&#x27;extra&#x27;: &#x27;forbid&#x27;}` added in retry; Field validators: `user_id: int = Field(gt=0)`, `amount: float = Field(gt=0)`, `status: str = Field(min_length=1, max_length=50)`; 05_test.log: test_validation_error PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>All 4 tests pass(2)</td>
+<td class="sc">2</td>
+<td class="cm">05_test.log: &#x27;4 passed in 0.27s&#x27; — test_create_order PASSED, test_get_order PASSED, test_404 PASSED, test_validation_error PASSED</td></tr>
+</tbody></table>
+<h4>opencode/mimo-v2-omni-free / OpenCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>FastAPI app</td>
+<td class="sc">1</td>
+<td class="cm">02_agent.log: agent writes main.py with `app = FastAPI()`; 05_test.log confirms app works</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Pydantic BaseModel</td>
+<td class="sc">1</td>
+<td class="cm">04_agent_retry.log: `OrderCreate(BaseModel)` with field validations; Pydantic v2 BaseModel used throughout</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>POST creates</td>
+<td class="sc">1</td>
+<td class="cm">05_test.log: `test_create_order PASSED`; retry changed status_code from 201 to 200 to match test expectations</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>GET returns</td>
+<td class="sc">2</td>
+<td class="cm">05_test.log: `test_get_order PASSED`; GET /orders/{id} endpoint returns stored order correctly</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>404</td>
+<td class="sc">2</td>
+<td class="cm">03_test.log and 05_test.log: `test_404 PASSED` in both runs; HTTPException(404) raised when order not found</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Validation</td>
+<td class="sc">1</td>
+<td class="cm">04_agent_retry.log: added `ConfigDict(extra=&#x27;forbid&#x27;)` to OrderCreate; 05_test.log: `test_validation_error PASSED`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>All 4 tests pass</td>
+<td class="sc">2</td>
+<td class="cm">05_test.log: `4 passed in 0.22s` — test_create_order, test_get_order, test_404, test_validation_error all PASSED</td></tr>
+</tbody></table>
+<h4>opencode/mimo-v2-pro-free / OpenCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>FastAPI app</td>
+<td class="sc">1</td>
+<td class="cm">02_agent.log: agent writes FastAPI app; 07_test.log confirms it works correctly</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Pydantic BaseModel</td>
+<td class="sc">1</td>
+<td class="cm">06_agent_retry.log: OrderCreate(BaseModel) with Field validators; Pydantic v2 BaseModel confirmed in final version</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>POST creates</td>
+<td class="sc">1</td>
+<td class="cm">07_test.log: `test_create_order PASSED`; 06_agent_retry.log changed status_code from 201 to 200</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>GET returns</td>
+<td class="sc">2</td>
+<td class="cm">07_test.log: `test_get_order PASSED`; GET /orders/{id} returns correct order</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>404</td>
+<td class="sc">2</td>
+<td class="cm">03_test.log, 05_test.log, 07_test.log: `test_404 PASSED` in all 3 runs; HTTPException(404) correctly raised</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Validation</td>
+<td class="sc">1</td>
+<td class="cm">06_agent_retry.log: `model_config = {&quot;extra&quot;: &quot;forbid&quot;}` added to OrderCreate; 07_test.log: `test_validation_error PASSED`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>All 4 tests pass</td>
+<td class="sc">2</td>
+<td class="cm">07_test.log: `4 passed in 0.20s` — test_create_order, test_get_order, test_404, test_validation_error all PASSED after 2 retries</td></tr>
+</tbody></table>
+<h4>Auto (Cursor) / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>FastAPI app(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 7: `app = FastAPI(title=&#x27;Orders API&#x27;)`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Pydantic BaseModel(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py: `OrderBase(BaseModel)`, `OrderCreate(OrderBase)`, `Order(OrderBase)` all inherit from Pydantic BaseModel</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>POST creates(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 37-42: `@app.post(&#x27;/orders&#x27;, response_model=Order)` generates new_id via max(orders_db.keys())+1, stores as Order, returns 200</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>GET returns(2)</td>
+<td class="sc">2</td>
+<td class="cm">main.py lines 45-50: `@app.get(&#x27;/orders/{id}&#x27;, response_model=Order)` with `orders_db.get(id)`; 07_test.log: test_get_order PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>404(2)</td>
+<td class="sc">2</td>
+<td class="cm">main.py lines 48-49: `if order is None: raise HTTPException(status_code=404, detail=&#x27;Order not found&#x27;)`; 07_test.log: test_404 PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Validation(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 11: `model_config = ConfigDict(extra=&#x27;forbid&#x27;)` on OrderBase; Field validators: `user_id: int = Field(..., gt=0)`, `amount: float = Field(..., gt=0)`, `status: str = Field(..., min_length=1, max_length=50)`; custom RequestValidationError handler returns 400</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>All 4 tests pass(2)</td>
+<td class="sc">2</td>
+<td class="cm">07_test.log: &#x27;4 passed in 0.20s&#x27; — all 4 tests pass after 2 retries</td></tr>
+</tbody></table>
+<h4>moex-test/glm-4.7 / OpenCode — 6/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>FastAPI app</td>
+<td class="sc">1</td>
+<td class="cm">FastAPI() instantiated</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Pydantic BaseModel для Order</td>
+<td class="sc">1</td>
+<td class="cm">OrderBase extends BaseModel with field validators</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>POST /orders создаёт заказ</td>
+<td class="sc">1</td>
+<td class="cm">POST creates order but returns 201 instead of expected 200</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>GET /orders/{id} возвращает заказ</td>
+<td class="sc">1</td>
+<td class="cm">GET logic correct but test_get_order fails because create returns 201; partial credit for working GET endpoint</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>GET для несуществующего id → 404</td>
+<td class="sc">2</td>
+<td class="cm">HTTPException 404 raised, test_404 passed in all test runs</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Валидация (422/400 при неверных данных)</td>
+<td class="sc">0</td>
+<td class="cm">No extra=forbid, extra &#x27;id&#x27; field silently accepted, returns 201 not 422/400</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Все 4 автотеста проходят через TestClient</td>
+<td class="sc">0</td>
+<td class="cm">3 failed, 1 passed in final 07_test.log — tests never all pass</td></tr>
+</tbody></table>
+<h4>opencode/minimax-m2.5-free / OpenCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>FastAPI app</td>
+<td class="sc">1</td>
+<td class="cm">02_agent.log: writes main.py with FastAPI; 05_test.log confirms app works</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Pydantic BaseModel</td>
+<td class="sc">1</td>
+<td class="cm">04_agent_retry.log: `OrderCreate(BaseModel)` with Field validators `user_id: int = Field(..., gt=0)`, `amount: float = Field(..., gt=0)`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>POST creates</td>
+<td class="sc">1</td>
+<td class="cm">05_test.log: `test_create_order PASSED`; retry changed `status_code=201` to default 200</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>GET returns</td>
+<td class="sc">2</td>
+<td class="cm">05_test.log: `test_get_order PASSED`; GET /orders/{id} returns stored order</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>404</td>
+<td class="sc">2</td>
+<td class="cm">03_test.log and 05_test.log: `test_404 PASSED` in both runs</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Validation</td>
+<td class="sc">1</td>
+<td class="cm">04_agent_retry.log: added `model_config = ConfigDict(extra=&#x27;forbid&#x27;)` to reject extra fields; 05_test.log: `test_validation_error PASSED`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>All 4 tests pass</td>
+<td class="sc">2</td>
+<td class="cm">05_test.log: `4 passed in 0.26s` — all 4 tests PASSED after 1 retry</td></tr>
+</tbody></table>
+<h4>moex-test/glm-4.7 / KiloCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>FastAPI app</td>
+<td class="sc">1</td>
+<td class="cm">FastAPI() instantiated</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Pydantic BaseModel для Order</td>
+<td class="sc">1</td>
+<td class="cm">OrderCreate and Order use BaseModel</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>POST /orders создаёт заказ</td>
+<td class="sc">1</td>
+<td class="cm">POST creates order, returns 200 after final retry fix</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>GET /orders/{id} возвращает заказ</td>
+<td class="sc">2</td>
+<td class="cm">GET returns order by id</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>GET для несуществующего id → 404</td>
+<td class="sc">2</td>
+<td class="cm">HTTPException 404 for missing id</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Валидация (422/400 при неверных данных)</td>
+<td class="sc">1</td>
+<td class="cm">extra=forbid added during retry, returns 422 for extra fields</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Все 4 автотеста проходят через TestClient</td>
+<td class="sc">2</td>
+<td class="cm">4 passed in 07_test.log after 2 retries</td></tr>
+</tbody></table>
+<h4>kilo/nvidia/nemotron-3-super-120b-a12b:free / KiloCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>FastAPI app</td>
+<td class="sc">1</td>
+<td class="cm">FastAPI() instantiated</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Pydantic BaseModel для Order</td>
+<td class="sc">1</td>
+<td class="cm">OrderBase and Order use BaseModel</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>POST /orders создаёт заказ</td>
+<td class="sc">1</td>
+<td class="cm">@app.post(&#x27;/orders&#x27;) implemented</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>GET /orders/{id} возвращает заказ</td>
+<td class="sc">2</td>
+<td class="cm">@app.get(&#x27;/orders/{order_id}&#x27;) returns order</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>GET для несуществующего id → 404</td>
+<td class="sc">2</td>
+<td class="cm">HTTPException 404 raised</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Валидация (422/400 при неверных данных)</td>
+<td class="sc">1</td>
+<td class="cm">ConfigDict(extra=&#x27;forbid&#x27;) added in retry → 422</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Все 4 автотеста проходят через TestClient</td>
+<td class="sc">2</td>
+<td class="cm">4 passed after retry (validation test failed first)</td></tr>
+</tbody></table>
+<h4>kilo/x-ai/grok-code-fast-1:optimized:free / KiloCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>FastAPI app</td>
+<td class="sc">1</td>
+<td class="cm">FastAPI() instantiated</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Pydantic BaseModel для Order</td>
+<td class="sc">1</td>
+<td class="cm">Order and OrderCreate use BaseModel</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>POST /orders создаёт заказ</td>
+<td class="sc">1</td>
+<td class="cm">POST creates and returns new order</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>GET /orders/{id} возвращает заказ</td>
+<td class="sc">2</td>
+<td class="cm">GET returns order by id</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>GET для несуществующего id → 404</td>
+<td class="sc">2</td>
+<td class="cm">HTTPException(404) for missing id</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Валидация (422/400 при неверных данных)</td>
+<td class="sc">1</td>
+<td class="cm">extra=forbid causes 422 for unexpected fields, added after retry</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Все 4 автотеста проходят через TestClient</td>
+<td class="sc">2</td>
+<td class="cm">4 passed in 05_test.log after 1 retry</td></tr>
+</tbody></table>
+<h4>GPT-5.4 Medium / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>FastAPI app</td>
+<td class="sc">1</td>
+<td class="cm">FastAPI() instantiated after retry</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Pydantic BaseModel для Order</td>
+<td class="sc">1</td>
+<td class="cm">OrderCreate and Order use BaseModel with validators</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>POST /orders создаёт заказ</td>
+<td class="sc">1</td>
+<td class="cm">@app.post(&#x27;/orders&#x27;) status_code=200</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>GET /orders/{id} возвращает заказ</td>
+<td class="sc">2</td>
+<td class="cm">@app.get(&#x27;/orders/{id}&#x27;) returns order</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>GET для несуществующего id → 404</td>
+<td class="sc">2</td>
+<td class="cm">HTTPException 404 raised</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Валидация (422/400 при неверных данных)</td>
+<td class="sc">1</td>
+<td class="cm">extra=&#x27;forbid&#x27;, custom handler returns 400</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Все 4 автотеста проходят через TestClient</td>
+<td class="sc">2</td>
+<td class="cm">4 passed after retry (first attempt produced no main.py)</td></tr>
+</tbody></table>
+</div></details>
+<details><summary>3-complex-debug. Complex Debug — Thread-safety bug (threading.Lock)</summary><div>
+<table><thead><tr><th>Модель</th><th>Агент</th><th>Вердикт</th>
+<th>Балл</th><th>Шаги</th><th>Время</th><th>Retries</th></tr></thead><tbody>
+<tr><td>Composer 2</td><td>Cursor Agent</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">73.9s</td>
+<td class="num">0</td></tr>
+<tr><td>GPT-5.3 Codex Fast</td><td>Cursor Agent</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">159.8s</td>
+<td class="num">0</td></tr>
+<tr><td>Claude Opus 4.6</td><td>Claude Code</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">36.0s</td>
+<td class="num">0</td></tr>
+<tr><td>opencode/mimo-v2-omni-free</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">70.2s</td>
+<td class="num">0</td></tr>
+<tr><td>opencode/mimo-v2-pro-free</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">29.7s</td>
+<td class="num">0</td></tr>
+<tr><td>Auto (Cursor)</td><td>Cursor Agent</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">168.9s</td>
+<td class="num">0</td></tr>
+<tr><td>moex-test/glm-4.7</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">16.5s</td>
+<td class="num">0</td></tr>
+<tr><td>opencode/minimax-m2.5-free</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">28.4s</td>
+<td class="num">0</td></tr>
+<tr><td>moex-test/glm-4.7</td><td>KiloCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">17.0s</td>
+<td class="num">0</td></tr>
+<tr><td>kilo/nvidia/nemotron-3-super-120b-a12b:free</td><td>KiloCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">227.0s</td>
+<td class="num">0</td></tr>
+<tr><td>kilo/x-ai/grok-code-fast-1:optimized:free</td><td>KiloCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">638.2s</td>
+<td class="num">0</td></tr>
+<tr><td>GPT-5.4 Medium</td><td>Cursor Agent</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">8/10</td>
+<td class="num">3</td>
+<td class="num">118.6s</td>
+<td class="num">0</td></tr>
+</tbody></table>
+<h3>Обоснование оценок</h3>
+<h4>Composer 2 / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Test passes run_threads()==1000(4)</td>
+<td class="sc">4</td>
+<td class="cm">03_test.log: &#x27;1 passed in 0.40s&#x27; — test_thread_safety PASSED; agent log: &#x27;запуск run_threads() даёт 1000, 50 последовательных запусков проходят без ошибок&#x27;</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Public interface preserved(2)</td>
+<td class="sc">2</td>
+<td class="cm">main.py: Counter.__init__, Counter.increment, Counter.value, run_threads() all preserved; agent log: &#x27;Публичный контракт сохранён: класс Counter, __init__, метод increment, атрибут value, функция run_threads — без изменений сигнатур&#x27;</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>No globals(2)</td>
+<td class="sc">2</td>
+<td class="cm">main.py line 7: `self._lock = threading.Lock()` — instance attribute; agent log: &#x27;_lock — внутренняя деталь реализации&#x27;, not a global variable</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Thread-safe sync(2)</td>
+<td class="sc">2</td>
+<td class="cm">main.py lines 10-11: `with self._lock: self.value += 1` — clean atomic increment under lock; notably cleaner than other agents (no unnecessary temp variable)</td></tr>
+</tbody></table>
+<h4>GPT-5.3 Codex Fast / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Тест проходит (run_threads() == 1000)</td>
+<td class="sc">4</td>
+<td class="cm">test_thread_safety passed</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Публичный интерфейс сохранён</td>
+<td class="sc">2</td>
+<td class="cm">Counter.increment() and run_threads() preserved</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Без глобальных переменных</td>
+<td class="sc">2</td>
+<td class="cm">no module-level mutable state</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Корректная синхронизация (thread-safe)</td>
+<td class="sc">2</td>
+<td class="cm">threading.Lock used inside Counter.increment via with self._lock</td></tr>
+</tbody></table>
+<h4>Claude Opus 4.6 / Claude Code — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Test passes run_threads()==1000(4)</td>
+<td class="sc">4</td>
+<td class="cm">03_test.log: &#x27;1 passed in 0.36s&#x27; — test_thread_safety PASSED confirming run_threads() returns 1000</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Public interface preserved(2)</td>
+<td class="sc">2</td>
+<td class="cm">main.py: class Counter with __init__, increment method and value attribute unchanged; agent log: &#x27;Публичный интерфейс не изменён: __init__, increment, run_threads — всё на месте&#x27;</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>No globals(2)</td>
+<td class="sc">2</td>
+<td class="cm">main.py line 7: `self._lock = threading.Lock()` — lock is instance attribute, not global; agent log confirms &#x27;Без глобальных переменных: лок — атрибут экземпляра&#x27;</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Thread-safe sync(2)</td>
+<td class="sc">2</td>
+<td class="cm">main.py lines 10-13: `with self._lock:` wraps temp read-modify-write of counter.value; threading.Lock() ensures atomicity</td></tr>
+</tbody></table>
+<h4>opencode/mimo-v2-omni-free / OpenCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Test passes run_threads()==1000</td>
+<td class="sc">4</td>
+<td class="cm">03_test.log: `test_thread_safety PASSED` in 0.34s; agent also ran `python test_counter.py` showing `Test 1 passed: run_threads returns 1000`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Public interface preserved</td>
+<td class="sc">2</td>
+<td class="cm">main.py: `increment(self)` signature unchanged, `self.value` attribute unchanged; only added `self._lock = threading.Lock()` (private)</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>No globals</td>
+<td class="sc">2</td>
+<td class="cm">main.py: lock is instance attribute `self._lock`, no module-level variables; agent&#x27;s thinking at line 46 explicitly: &#x27;lock будет приватным атрибутом&#x27;</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Thread-safe sync</td>
+<td class="sc">2</td>
+<td class="cm">main.py lines 9-10: `with self._lock: self.value += 1` — Lock context manager wraps increment atomically</td></tr>
+</tbody></table>
+<h4>opencode/mimo-v2-pro-free / OpenCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Test passes run_threads()==1000</td>
+<td class="sc">4</td>
+<td class="cm">03_test.log: `test_thread_safety PASSED` in 0.72s; agent made minimal targeted edit in 02_agent.log</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Public interface preserved</td>
+<td class="sc">2</td>
+<td class="cm">main.py: `increment(self)` unchanged, `self.value` attribute unchanged; private `self._lock` added</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>No globals</td>
+<td class="sc">2</td>
+<td class="cm">main.py: lock is `self._lock = threading.Lock()` — instance attribute, no module-level globals</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Thread-safe sync</td>
+<td class="sc">2</td>
+<td class="cm">main.py lines 10-13: `with self._lock: temp = self.value; temp += 1; self.value = temp` — all three steps inside lock</td></tr>
+</tbody></table>
+<h4>Auto (Cursor) / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Test passes run_threads()==1000(4)</td>
+<td class="sc">4</td>
+<td class="cm">03_test.log: &#x27;1 passed in 0.33s&#x27; — test_thread_safety PASSED; agent log: &#x27;запуск run_threads() несколько раз подряд дал стабильный результат 1000 каждый раз&#x27;</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Public interface preserved(2)</td>
+<td class="sc">2</td>
+<td class="cm">main.py: class Counter with __init__, increment, value unchanged; agent log: &#x27;публичный интерфейс класса не изменён (Counter, __init__, increment, value как и раньше)&#x27;</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>No globals(2)</td>
+<td class="sc">2</td>
+<td class="cm">main.py line 7: `self._lock = threading.Lock()` — instance attribute; agent log: &#x27;глобальные переменные не использованы&#x27;</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Thread-safe sync(2)</td>
+<td class="sc">2</td>
+<td class="cm">main.py lines 9-13: `with self._lock:` wraps temp=self.value; temp+=1; self.value=temp ensuring atomic read-modify-write</td></tr>
+</tbody></table>
+<h4>moex-test/glm-4.7 / OpenCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Тест проходит (run_threads() == 1000)</td>
+<td class="sc">4</td>
+<td class="cm">test_thread_safety passed in 0.26s</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Публичный интерфейс сохранён</td>
+<td class="sc">2</td>
+<td class="cm">Counter.increment and run_threads() signatures preserved</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Без глобальных переменных</td>
+<td class="sc">2</td>
+<td class="cm">Counter instantiated locally in run_threads, no module globals</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Корректная синхронизация (thread-safe)</td>
+<td class="sc">2</td>
+<td class="cm">threading.RLock with context manager, atomic increment</td></tr>
+</tbody></table>
+<h4>opencode/minimax-m2.5-free / OpenCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Test passes run_threads()==1000</td>
+<td class="sc">4</td>
+<td class="cm">03_test.log: `test_thread_safety PASSED` in 0.66s; 02_agent.log also ran `python -c &#x27;from main import run_threads; print(run_threads())&#x27;` returning `1000`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Public interface preserved</td>
+<td class="sc">2</td>
+<td class="cm">main.py: `increment(self)` signature unchanged, `self.value` attribute remains public</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>No globals</td>
+<td class="sc">2</td>
+<td class="cm">main.py line 7: `self._lock = threading.Lock()` — instance attribute, no module-level variables used</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Thread-safe sync</td>
+<td class="sc">2</td>
+<td class="cm">main.py lines 10-11: `with self._lock: self.value += 1` — atomic increment via Lock context manager</td></tr>
+</tbody></table>
+<h4>moex-test/glm-4.7 / KiloCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Тест проходит (run_threads() == 1000)</td>
+<td class="sc">4</td>
+<td class="cm">test_thread_safety passed in 0.50s</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Публичный интерфейс сохранён</td>
+<td class="sc">2</td>
+<td class="cm">Counter.increment and run_threads() signatures preserved</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Без глобальных переменных</td>
+<td class="sc">2</td>
+<td class="cm">Counter local inside run_threads, no module-level globals</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Корректная синхронизация (thread-safe)</td>
+<td class="sc">2</td>
+<td class="cm">threading.Lock with context manager, atomic increment</td></tr>
+</tbody></table>
+<h4>kilo/nvidia/nemotron-3-super-120b-a12b:free / KiloCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Тест проходит (run_threads() == 1000)</td>
+<td class="sc">4</td>
+<td class="cm">test_thread_safety passed</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Публичный интерфейс сохранён</td>
+<td class="sc">2</td>
+<td class="cm">Counter.increment() and run_threads() preserved</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Без глобальных переменных</td>
+<td class="sc">2</td>
+<td class="cm">no module-level mutable state</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Корректная синхронизация (thread-safe)</td>
+<td class="sc">2</td>
+<td class="cm">threading.Lock used in Counter.increment via with self._lock</td></tr>
+</tbody></table>
+<h4>kilo/x-ai/grok-code-fast-1:optimized:free / KiloCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Тест проходит (run_threads() == 1000)</td>
+<td class="sc">4</td>
+<td class="cm">test_thread_safety passed in 0.41s</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Публичный интерфейс сохранён</td>
+<td class="sc">2</td>
+<td class="cm">Counter and run_threads() signatures unchanged</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Без глобальных переменных</td>
+<td class="sc">2</td>
+<td class="cm">Counter instantiated locally in run_threads, no module globals</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Корректная синхронизация (thread-safe)</td>
+<td class="sc">2</td>
+<td class="cm">threading.Lock used in with block guarding value mutation</td></tr>
+</tbody></table>
+<h4>GPT-5.4 Medium / Cursor Agent — 8/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Тест проходит (run_threads() == 1000)</td>
+<td class="sc">4</td>
+<td class="cm">test_thread_safety passed (race condition may have not triggered)</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Публичный интерфейс сохранён</td>
+<td class="sc">2</td>
+<td class="cm">Counter.increment() and run_threads() preserved</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Без глобальных переменных</td>
+<td class="sc">2</td>
+<td class="cm">no module-level mutable state</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Корректная синхронизация (thread-safe)</td>
+<td class="sc">0</td>
+<td class="cm">no Lock: temp=self.value; temp+=1; self.value=temp is a race condition</td></tr>
+</tbody></table>
+</div></details>
+<details><summary>4-spec-compliance. Spec Compliance — frozen dataclass, формулы, edge cases</summary><div>
+<table><thead><tr><th>Модель</th><th>Агент</th><th>Вердикт</th>
+<th>Балл</th><th>Шаги</th><th>Время</th><th>Retries</th></tr></thead><tbody>
+<tr><td>Composer 2</td><td>Cursor Agent</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">71.1s</td>
+<td class="num">0</td></tr>
+<tr><td>GPT-5.3 Codex Fast</td><td>Cursor Agent</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">50.6s</td>
+<td class="num">0</td></tr>
+<tr><td>Claude Opus 4.6</td><td>Claude Code</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">48.1s</td>
+<td class="num">0</td></tr>
+<tr><td>opencode/mimo-v2-omni-free</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">73.9s</td>
+<td class="num">0</td></tr>
+<tr><td>opencode/mimo-v2-pro-free</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">9/10</td>
+<td class="num">5</td>
+<td class="num">109.7s</td>
+<td class="num">1</td></tr>
+<tr><td>Auto (Cursor)</td><td>Cursor Agent</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">21.3s</td>
+<td class="num">0</td></tr>
+<tr><td>moex-test/glm-4.7</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">14.6s</td>
+<td class="num">0</td></tr>
+<tr><td>opencode/minimax-m2.5-free</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">23.0s</td>
+<td class="num">0</td></tr>
+<tr><td>moex-test/glm-4.7</td><td>KiloCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">24.9s</td>
+<td class="num">0</td></tr>
+<tr><td>kilo/nvidia/nemotron-3-super-120b-a12b:free</td><td>KiloCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">131.1s</td>
+<td class="num">0</td></tr>
+<tr><td>kilo/x-ai/grok-code-fast-1:optimized:free</td><td>KiloCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">3</td>
+<td class="num">19.5s</td>
+<td class="num">0</td></tr>
+<tr><td>GPT-5.4 Medium</td><td>Cursor Agent</td>
+<td><span class="badge warn">Warn</span></td>
+<td class="num">10/10</td>
+<td class="num">5</td>
+<td class="num">252.3s</td>
+<td class="num">1</td></tr>
+</tbody></table>
+<h3>Обоснование оценок</h3>
+<h4>Composer 2 / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>frozen=True(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 6: `@dataclass(frozen=True)`; test_dataclass_frozen PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>tuple items(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 15: `items: tuple[float, ...]`; test_items_is_tuple PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Formula(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 30-33: `subtotal=sum(items)`, `after_discount=subtotal*(1.0-self.discount/100.0)`, `with_tax=after_discount*(1.0+self.tax_rate/100.0)`, `return round(with_tax, 2)`; test_correct_calculation PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Rounding(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 33: `return round(with_tax, 2)`; test_rounding_precision PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Empty items check(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 20-21: `if not self.items: raise ValueError(&#x27;items must not be empty&#x27;)`; test_empty_items PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Negative check(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 22-23: `if any(x &lt; 0 for x in self.items): raise ValueError`; lines 24-25: `if self.tax_rate &lt; 0: raise ValueError`; test_negative_item and test_negative_tax PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>discount&lt;=100(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 26-27: `if self.discount &lt; 0 or self.discount &gt; 100: raise ValueError(&#x27;discount must be &gt;= 0 and &lt;= 100&#x27;)`; test_discount_over_100 PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Docstring(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 1 (module docstring), lines 8-13 (detailed class docstring): &#x27;Immutable order: line item prices, VAT-style tax, and percentage discount. items are non-negative prices...&#x27;; test_docstring_exists PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Type hints(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py: `items: tuple[float, ...]`, `tax_rate: float`, `discount: float`, `total(self) -&gt; float`; test_type_hints PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>All tests pass(1)</td>
+<td class="sc">1</td>
+<td class="cm">03_test.log: &#x27;11 passed in 0.02s&#x27; — all 11 tests PASSED</td></tr>
+</tbody></table>
+<h4>GPT-5.3 Codex Fast / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>frozen=True</td>
+<td class="sc">1</td>
+<td class="cm">@dataclass(frozen=True)</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>tuple для items</td>
+<td class="sc">1</td>
+<td class="cm">items: tuple[float, ...]</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Корректная формула</td>
+<td class="sc">1</td>
+<td class="cm">subtotal*(1-discount/100)*(1+tax_rate/100)</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Округление до 2 знаков</td>
+<td class="sc">1</td>
+<td class="cm">round(float(taxed), 2)</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Проверка empty items</td>
+<td class="sc">1</td>
+<td class="cm">ValueError if not self.items</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Проверка negative</td>
+<td class="sc">1</td>
+<td class="cm">item&lt;0, tax_rate&lt;0, discount&lt;0 all checked</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>discount ≤ 100</td>
+<td class="sc">1</td>
+<td class="cm">ValueError if discount &gt; 100</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Docstring</td>
+<td class="sc">1</td>
+<td class="cm">class and total() have docstrings</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Type hints</td>
+<td class="sc">1</td>
+<td class="cm">all fields and return types annotated</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Все автотесты проходят</td>
+<td class="sc">1</td>
+<td class="cm">11 passed in 0.02s</td></tr>
+</tbody></table>
+<h4>Claude Opus 4.6 / Claude Code — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>frozen=True(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 4: `@dataclass(frozen=True)`; test_dataclass_frozen PASSED in 03_test.log</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>tuple items(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 8: `items: tuple[float, ...]`; test_items_is_tuple PASSED in 03_test.log</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Formula(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 27-30: subtotal=sum(items), after_discount=subtotal*(1-discount/100), after_tax=after_discount*(1+tax_rate/100); test_correct_calculation PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Rounding(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 30: `return round(after_tax, 2)`; test_rounding_precision PASSED in 03_test.log</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Empty items check(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 13-14: `if not self.items: raise ValueError(&#x27;items must not be empty&#x27;)`; test_empty_items PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Negative check(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 15-17: iterates items checking `if item &lt; 0: raise ValueError`; also `if self.tax_rate &lt; 0: raise ValueError`; test_negative_item and test_negative_tax PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>discount&lt;=100(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 22-23: `if self.discount &gt; 100: raise ValueError(&#x27;discount must not be &gt; 100&#x27;)`; test_discount_over_100 PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Docstring(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 6: class docstring `&quot;&quot;&quot;Immutable order model that calculates total with discount and tax.&quot;&quot;&quot;`; test_docstring_exists PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Type hints(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py: `items: tuple[float, ...]`, `tax_rate: float`, `discount: float`, `total(self) -&gt; float`; test_type_hints PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>All tests pass(1)</td>
+<td class="sc">1</td>
+<td class="cm">03_test.log: &#x27;11 passed in 0.02s&#x27; — all 11 tests including test_correct_calculation, test_rounding_precision, test_immutable, etc. PASSED</td></tr>
+</tbody></table>
+<h4>opencode/mimo-v2-omni-free / OpenCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>frozen=True</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 6: `@dataclass(frozen=True)`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>tuple items</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 17: `items: tuple[float, ...]`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Formula</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 37-40: `after_discount = subtotal * (1 - self.discount / 100)` then `after_discount * (1 + self.tax_rate / 100)` — correct order discount then tax</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Rounding</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 40: `return round(after_tax, 2)`; 03_test.log: `test_rounding_precision PASSED`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Empty items check</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 29-30: `if not self.items: raise ValueError(&#x27;items cannot be empty&#x27;)`; 03_test.log: `test_empty_items PASSED`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Negative check</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 31-33: `for price in self.items: if price &lt; 0: raise ValueError(...)`; 03_test.log: `test_negative_item PASSED`, `test_negative_tax PASSED`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>discount&lt;=100</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 27-28: `if self.discount &gt; 100: raise ValueError(&#x27;discount cannot exceed 100&#x27;)`; 03_test.log: `test_discount_over_100 PASSED`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Docstring</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 8-15: class docstring with Attributes section; method docstring on total(); 03_test.log: `test_docstring_exists PASSED`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Type hints</td>
+<td class="sc">1</td>
+<td class="cm">main.py: all fields typed (`tuple[float, ...]`, `float`), `__post_init__(self) -&gt; None`, `total(self) -&gt; float`; 03_test.log: `test_type_hints PASSED`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>All tests pass</td>
+<td class="sc">1</td>
+<td class="cm">03_test.log: `11 passed in 0.02s` — all 11 tests including test_correct_calculation, test_immutable, test_dataclass_frozen PASSED</td></tr>
+</tbody></table>
+<h4>opencode/mimo-v2-pro-free / OpenCode — 9/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>frozen=True</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 4: `@dataclass(frozen=True)`; 05_test.log: `test_dataclass_frozen PASSED`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>tuple items</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 14: `items: tuple[float, ...]`; 05_test.log: `test_items_is_tuple PASSED`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Formula</td>
+<td class="sc">1</td>
+<td class="cm">Final main.py lines 39-41: `after_discount = subtotal * (1 - self.discount / 100)` then `* (1 + self.tax_rate / 100)` — correct after retry fix. Initial version had `* (1 + self.tax_rate)` without /100 causing result 1485 instead of 148.5</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Rounding</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 42: `return round(after_tax, 2)`; 05_test.log: `test_rounding_precision PASSED`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Empty items check</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 19-20: `if not self.items: raise ValueError(&#x27;items cannot be empty&#x27;)`; 05_test.log: `test_empty_items PASSED`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Negative check</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 21-23: loop checks `price &lt; 0`; also `tax_rate &lt; 0` and `discount &lt; 0`; 05_test.log: `test_negative_item PASSED`, `test_negative_tax PASSED`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>discount&lt;=100</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 28-29: `if self.discount &gt; 100: raise ValueError(...)`; 05_test.log: `test_discount_over_100 PASSED`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Docstring</td>
+<td class="sc">1</td>
+<td class="cm">main.py: class docstring with Attributes section; total() method has docstring with Returns; 05_test.log: `test_docstring_exists PASSED`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Type hints</td>
+<td class="sc">1</td>
+<td class="cm">main.py: all fields typed; methods annotated; 05_test.log: `test_type_hints PASSED`</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>All tests pass</td>
+<td class="sc">0</td>
+<td class="cm">03_test.log: `1 failed, 10 passed` — test_correct_calculation FAILED (1485.0 != 148.5) due to tax_rate applied as `(1 + tax_rate)` not `(1 + tax_rate/100)`. Fixed in retry; 05_test.log: `11 passed in 0.02s`</td></tr>
+</tbody></table>
+<h4>Auto (Cursor) / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>frozen=True(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 4: `@dataclass(frozen=True)`; test_dataclass_frozen PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>tuple items(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 8: `items: tuple[float, ...]`; test_items_is_tuple PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Formula(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 30-33: subtotal=sum(self.items), discounted=subtotal*(1-self.discount/100), taxed=discounted*(1+self.tax_rate/100), return round(float(taxed), 2); test_correct_calculation PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Rounding(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 33: `return round(float(taxed), 2)`; test_rounding_precision PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Empty items check(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 13-14: `if not self.items: raise ValueError(&#x27;items cannot be empty&#x27;)`; test_empty_items PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Negative check(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 25-27: iterates items `if item &lt; 0: raise ValueError`; lines 16-17: `if self.tax_rate &lt; 0: raise ValueError`; test_negative_item and test_negative_tax PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>discount&lt;=100(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 22-23: `if self.discount &gt; 100: raise ValueError(&#x27;discount cannot be &gt; 100&#x27;)`; test_discount_over_100 PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Docstring(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 6: class docstring `&quot;&quot;&quot;Immutable order model with discount and tax calculation.&quot;&quot;&quot;`; test_docstring_exists PASSED in 03_test.log</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Type hints(1)</td>
+<td class="sc">1</td>
+<td class="cm">main.py: `items: tuple[float, ...]`, `tax_rate: float`, `discount: float`, `total(self) -&gt; float` with return type annotation; test_type_hints PASSED</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>All tests pass(1)</td>
+<td class="sc">1</td>
+<td class="cm">03_test.log: &#x27;11 passed in 0.02s&#x27; — all 11 tests PASSED including test_docstring_exists</td></tr>
+</tbody></table>
+<h4>moex-test/glm-4.7 / OpenCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>frozen=True</td>
+<td class="sc">1</td>
+<td class="cm">@dataclass(frozen=True)</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>tuple для items</td>
+<td class="sc">1</td>
+<td class="cm">items: Tuple[float, ...]</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Корректная формула</td>
+<td class="sc">1</td>
+<td class="cm">subtotal*(1-discount/100)*(1+tax_rate/100)</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Округление до 2 знаков</td>
+<td class="sc">1</td>
+<td class="cm">round(result, 2)</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Проверка empty items</td>
+<td class="sc">1</td>
+<td class="cm">raises ValueError if not self.items</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Проверка negative</td>
+<td class="sc">1</td>
+<td class="cm">raises ValueError for negative items and tax_rate</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>discount ≤ 100</td>
+<td class="sc">1</td>
+<td class="cm">raises ValueError if discount &gt; 100</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Docstring</td>
+<td class="sc">1</td>
+<td class="cm">Class docstring with attributes and total() docstring present</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Type hints</td>
+<td class="sc">1</td>
+<td class="cm">All fields annotated, total() -&gt; float</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Все автотесты проходят</td>
+<td class="sc">1</td>
+<td class="cm">11 passed in 0.02s</td></tr>
+</tbody></table>
+<h4>opencode/minimax-m2.5-free / OpenCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>frozen=True</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 4: `@dataclass(frozen=True)`; 03_test.log: `test_dataclass_frozen PASSED`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>tuple items</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 14: `items: tuple[float, ...]`; 03_test.log: `test_items_is_tuple PASSED`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Formula</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 45-47: `after_discount = subtotal * (1 - self.discount / 100)` then `total_with_tax = after_discount * (1 + self.tax_rate / 100)` — correct formula; 03_test.log: `test_correct_calculation PASSED`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Rounding</td>
+<td class="sc">1</td>
+<td class="cm">main.py line 48: `return round(total_with_tax, 2)`; 03_test.log: `test_rounding_precision PASSED`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Empty items check</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 18-19: `if not self.items: raise ValueError(&#x27;items cannot be empty&#x27;)`; 03_test.log: `test_empty_items PASSED`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Negative check</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 21-23: `if any(item &lt; 0 for item in self.items)`, also checks `tax_rate &lt; 0` and `discount &lt; 0`; 03_test.log: `test_negative_item PASSED`, `test_negative_tax PASSED`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>discount&lt;=100</td>
+<td class="sc">1</td>
+<td class="cm">main.py lines 29-30: `if self.discount &gt; 100: raise ValueError(&#x27;discount cannot be &gt; 100&#x27;)`; 03_test.log: `test_discount_over_100 PASSED`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Docstring</td>
+<td class="sc">1</td>
+<td class="cm">main.py: class docstring lines 6-12 in Russian with Поля section; total() method docstring lines 35-43; 03_test.log: `test_docstring_exists PASSED`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Type hints</td>
+<td class="sc">1</td>
+<td class="cm">main.py: all fields typed, `__post_init__(self) -&gt; None`, `total(self) -&gt; float`; 03_test.log: `test_type_hints PASSED`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>All tests pass</td>
+<td class="sc">1</td>
+<td class="cm">03_test.log: `11 passed in 0.02s` — all 11 tests PASSED on first attempt with no retries</td></tr>
+</tbody></table>
+<h4>moex-test/glm-4.7 / KiloCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>frozen=True</td>
+<td class="sc">1</td>
+<td class="cm">@dataclass(frozen=True)</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>tuple для items</td>
+<td class="sc">1</td>
+<td class="cm">items: tuple[float, ...]</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Корректная формула</td>
+<td class="sc">1</td>
+<td class="cm">subtotal*(1-discount/100)*(1+tax_rate/100)</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Округление до 2 знаков</td>
+<td class="sc">1</td>
+<td class="cm">round(total, 2)</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Проверка empty items</td>
+<td class="sc">1</td>
+<td class="cm">raises ValueError if not self.items</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Проверка negative</td>
+<td class="sc">1</td>
+<td class="cm">raises ValueError for negative items and negative tax_rate</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>discount ≤ 100</td>
+<td class="sc">1</td>
+<td class="cm">raises ValueError if discount &gt; 100</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Docstring</td>
+<td class="sc">1</td>
+<td class="cm">Class and total() method have docstrings</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Type hints</td>
+<td class="sc">1</td>
+<td class="cm">All fields annotated, total() -&gt; float</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Все автотесты проходят</td>
+<td class="sc">1</td>
+<td class="cm">11 passed in 0.02s</td></tr>
+</tbody></table>
+<h4>kilo/nvidia/nemotron-3-super-120b-a12b:free / KiloCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>frozen=True</td>
+<td class="sc">1</td>
+<td class="cm">@dataclass(frozen=True)</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>tuple для items</td>
+<td class="sc">1</td>
+<td class="cm">items: tuple[float, ...]</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Корректная формула</td>
+<td class="sc">1</td>
+<td class="cm">subtotal*(1-discount/100)*(1+tax_rate/100)</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Округление до 2 знаков</td>
+<td class="sc">1</td>
+<td class="cm">round(total, 2)</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Проверка empty items</td>
+<td class="sc">1</td>
+<td class="cm">ValueError if not self.items</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Проверка negative</td>
+<td class="sc">1</td>
+<td class="cm">item&lt;0, tax_rate&lt;0, discount&lt;0 or &gt;100 checked</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>discount ≤ 100</td>
+<td class="sc">1</td>
+<td class="cm">discount&gt;100 raises ValueError</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Docstring</td>
+<td class="sc">1</td>
+<td class="cm">class docstring and total() docstring present</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Type hints</td>
+<td class="sc">1</td>
+<td class="cm">all fields typed, total() -&gt; float</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Все автотесты проходят</td>
+<td class="sc">1</td>
+<td class="cm">11 passed</td></tr>
+</tbody></table>
+<h4>kilo/x-ai/grok-code-fast-1:optimized:free / KiloCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>frozen=True</td>
+<td class="sc">1</td>
+<td class="cm">@dataclass(frozen=True)</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>tuple для items</td>
+<td class="sc">1</td>
+<td class="cm">items: Tuple[float, ...]</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Корректная формула</td>
+<td class="sc">1</td>
+<td class="cm">subtotal*(1-discount/100)*(1+tax_rate/100)</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Округление до 2 знаков</td>
+<td class="sc">1</td>
+<td class="cm">round(taxed, 2)</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Проверка empty items</td>
+<td class="sc">1</td>
+<td class="cm">raises ValueError if not self.items</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Проверка negative</td>
+<td class="sc">1</td>
+<td class="cm">raises ValueError for negative item prices and tax_rate</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>discount ≤ 100</td>
+<td class="sc">1</td>
+<td class="cm">raises ValueError if discount &gt; 100</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Docstring</td>
+<td class="sc">1</td>
+<td class="cm">Class docstring and total() docstring present</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Type hints</td>
+<td class="sc">1</td>
+<td class="cm">All fields and method return types annotated</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Все автотесты проходят</td>
+<td class="sc">1</td>
+<td class="cm">11 passed in 0.02s</td></tr>
+</tbody></table>
+<h4>GPT-5.4 Medium / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>frozen=True</td>
+<td class="sc">1</td>
+<td class="cm">@dataclass(frozen=True)</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>tuple для items</td>
+<td class="sc">1</td>
+<td class="cm">items: tuple[float, ...]</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Корректная формула</td>
+<td class="sc">1</td>
+<td class="cm">subtotal*(1-discount/100)*(1+tax_rate/100) via Decimal</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Округление до 2 знаков</td>
+<td class="sc">1</td>
+<td class="cm">ROUND_HALF_UP with Decimal(&#x27;0.01&#x27;)</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Проверка empty items</td>
+<td class="sc">1</td>
+<td class="cm">ValueError if not normalized_items</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Проверка negative</td>
+<td class="sc">1</td>
+<td class="cm">item&lt;0, tax_rate&lt;0, discount out of [0,100] checked</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>discount ≤ 100</td>
+<td class="sc">1</td>
+<td class="cm">not 0&lt;=discount&lt;=100 raises ValueError</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Docstring</td>
+<td class="sc">1</td>
+<td class="cm">class docstring present</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Type hints</td>
+<td class="sc">1</td>
+<td class="cm">all fields and total() -&gt; float typed</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Все автотесты проходят</td>
+<td class="sc">1</td>
+<td class="cm">11 passed after retry (first attempt: no main.py created)</td></tr>
+</tbody></table>
+</div></details>
+<details><summary>5-hallucination. Hallucination — Устойчивость к опечатке (mathplotlib -&gt; matplotlib)</summary><div>
+<table><thead><tr><th>Модель</th><th>Агент</th><th>Вердикт</th>
+<th>Балл</th><th>Шаги</th><th>Время</th><th>Retries</th></tr></thead><tbody>
+<tr><td>Composer 2</td><td>Cursor Agent</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">21.5s</td>
+<td class="num">0</td></tr>
+<tr><td>GPT-5.3 Codex Fast</td><td>Cursor Agent</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">14.3s</td>
+<td class="num">0</td></tr>
+<tr><td>Claude Opus 4.6</td><td>Claude Code</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">44.3s</td>
+<td class="num">0</td></tr>
+<tr><td>opencode/mimo-v2-omni-free</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">35.1s</td>
+<td class="num">0</td></tr>
+<tr><td>opencode/mimo-v2-pro-free</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">93.0s</td>
+<td class="num">0</td></tr>
+<tr><td>Auto (Cursor)</td><td>Cursor Agent</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">13.5s</td>
+<td class="num">0</td></tr>
+<tr><td>moex-test/glm-4.7</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">11.2s</td>
+<td class="num">0</td></tr>
+<tr><td>opencode/minimax-m2.5-free</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">8/10</td>
+<td class="num">1</td>
+<td class="num">13.9s</td>
+<td class="num">0</td></tr>
+<tr><td>moex-test/glm-4.7</td><td>KiloCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">9.7s</td>
+<td class="num">0</td></tr>
+<tr><td>kilo/nvidia/nemotron-3-super-120b-a12b:free</td><td>KiloCode</td>
+<td><span class="badge fail">Fail</span></td>
+<td class="num">5/10</td>
+<td class="num">1</td>
+<td class="num">24.9s</td>
+<td class="num">0</td></tr>
+<tr><td>kilo/x-ai/grok-code-fast-1:optimized:free</td><td>KiloCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">8.1s</td>
+<td class="num">0</td></tr>
+<tr><td>GPT-5.4 Medium</td><td>Cursor Agent</td>
+<td><span class="badge fail">Fail</span></td>
+<td class="num">3/10</td>
+<td class="num">1</td>
+<td class="num">37.5s</td>
+<td class="num">0</td></tr>
+</tbody></table>
+<h3>Обоснование оценок</h3>
+<h4>Composer 2 / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Correct name matplotlib(2)</td>
+<td class="sc">2</td>
+<td class="cm">plot_example.py line 7: `import matplotlib.pyplot as plt`; agent log: &#x27;matplotlib&gt;=3.8&#x27; in requirements.txt; uses correct library name</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Executable code(5)</td>
+<td class="sc">5</td>
+<td class="cm">plot_example.py: complete executable script using math module for sin/cos computation, matplotlib for plotting; `fig, ax = plt.subplots()`, `ax.plot()`, `plt.show()`; proper main() function with if __name__==&#x27;__main__&#x27; guard</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>No fake APIs(3)</td>
+<td class="sc">3</td>
+<td class="cm">plot_example.py uses only standard APIs: `math.sin`, `math.cos`, `plt.subplots()`, `ax.plot()`, `ax.set_xlabel()`, `ax.set_ylabel()`, `ax.set_title()`, `ax.legend()`, `ax.grid()`, `ax.axhline()`, `ax.axvline()`, `plt.show()` — all real, documented functions</td></tr>
+</tbody></table>
+<h4>GPT-5.3 Codex Fast / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Использует правильное имя (matplotlib)</td>
+<td class="sc">2</td>
+<td class="cm">identified typo, used &#x27;import matplotlib.pyplot as plt&#x27;</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Код выполняемый</td>
+<td class="sc">5</td>
+<td class="cm">syntactically valid matplotlib + numpy code in agent response</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Нет выдуманных API</td>
+<td class="sc">3</td>
+<td class="cm">only standard matplotlib/numpy APIs (plt.figure, plt.plot, plt.show)</td></tr>
+</tbody></table>
+<h4>Claude Opus 4.6 / Claude Code — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Correct name matplotlib(2)</td>
+<td class="sc">2</td>
+<td class="cm">plot.py line 2: `import matplotlib.pyplot as plt`; agent log: &#x27;Скрипт создан в plot.py. Он строит графики синуса и косинуса&#x27; using matplotlib</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Executable code(5)</td>
+<td class="sc">5</td>
+<td class="cm">plot.py lines 1-19: complete executable script with `import numpy as np`, `import matplotlib.pyplot as plt`, `np.linspace`, `fig, ax = plt.subplots()`, `plt.savefig(&#x27;plot.png&#x27;, dpi=150)`, `plt.show()`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>No fake APIs(3)</td>
+<td class="sc">3</td>
+<td class="cm">plot.py uses only standard matplotlib OO API: `plt.subplots()`, `ax.plot()`, `ax.set_title()`, `ax.legend()`, `ax.grid()`, `plt.tight_layout()`, `plt.savefig()` — all real, documented functions</td></tr>
+</tbody></table>
+<h4>opencode/mimo-v2-omni-free / OpenCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Correct name matplotlib</td>
+<td class="sc">2</td>
+<td class="cm">plot_example.py line 8: `import matplotlib.pyplot as plt` — correct library name, no hallucinated APIs</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Executable code</td>
+<td class="sc">5</td>
+<td class="cm">plot_example.py: syntactically valid; uses `np.linspace`, `np.sin`, `plt.plot`, `plt.savefig` — all real APIs; no fake method calls</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>No fake APIs</td>
+<td class="sc">3</td>
+<td class="cm">All calls are standard: `plt.figure`, `plt.plot`, `plt.title`, `plt.xlabel`, `plt.ylabel`, `plt.legend`, `plt.grid`, `plt.savefig`, `plt.show` — all canonical matplotlib APIs</td></tr>
+</tbody></table>
+<h4>opencode/mimo-v2-pro-free / OpenCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Correct name matplotlib</td>
+<td class="sc">2</td>
+<td class="cm">plot_graph.py line 1: `import matplotlib.pyplot as plt` — correct library name</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Executable code</td>
+<td class="sc">5</td>
+<td class="cm">01_agent.log: agent installed matplotlib+numpy, ran `python plot_graph.py` successfully, and `sin_graph.png` (36702 bytes) was created; confirmed executable</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>No fake APIs</td>
+<td class="sc">3</td>
+<td class="cm">plot_graph.py: uses `np.linspace`, `np.sin`, `plt.figure`, `plt.plot`, `plt.title`, `plt.xlabel`, `plt.ylabel`, `plt.legend`, `plt.grid`, `plt.savefig`, `plt.show` — all real matplotlib/numpy APIs</td></tr>
+</tbody></table>
+<h4>Auto (Cursor) / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Correct name matplotlib(2)</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log line 1: &#x27;Используй `matplotlib` (в запросе опечатка: `mathplotlib`)&#x27; — agent explicitly corrected the typo and used the correct library name</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Executable code(5)</td>
+<td class="sc">5</td>
+<td class="cm">01_agent.log lines 3-22: complete executable Python script with `import matplotlib.pyplot as plt`, `import numpy as np`, `x = np.linspace(0, 10, 200)`, `y = np.sin(x)`, `plt.plot(x, y)`, `plt.show()`; note: no workdir file saved but code is correct and executable</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>No fake APIs(3)</td>
+<td class="sc">3</td>
+<td class="cm">01_agent.log: uses only standard matplotlib/numpy APIs: `plt.figure()`, `plt.plot()`, `plt.title()`, `plt.xlabel()`, `plt.ylabel()`, `plt.grid()`, `plt.legend()`, `plt.show()` — all real documented functions</td></tr>
+</tbody></table>
+<h4>moex-test/glm-4.7 / OpenCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Использует правильное имя (matplotlib)</td>
+<td class="sc">2</td>
+<td class="cm">import matplotlib.pyplot as plt — correct library name</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Код выполняемый</td>
+<td class="sc">5</td>
+<td class="cm">Valid Python saved to plot_script.py with savefig+show, no syntax errors</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Нет выдуманных API</td>
+<td class="sc">3</td>
+<td class="cm">Only standard matplotlib/numpy API functions used</td></tr>
+</tbody></table>
+<h4>opencode/minimax-m2.5-free / OpenCode — 8/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Correct name matplotlib</td>
+<td class="sc">2</td>
+<td class="cm">plot.py line 1: `import matplotlib.pyplot as plt` — correct library name</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Executable code</td>
+<td class="sc">3</td>
+<td class="cm">plot.py is syntactically valid and uses real APIs, but 01_agent.log shows agent did NOT install matplotlib/numpy (said &#x27;LSP errors indicate not installed, install with pip install&#x27;) and did NOT run the script. No execution confirmed. Code is structurally correct but was not verified running. Partial credit for syntactically valid, real-API-only code.</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>No fake APIs</td>
+<td class="sc">3</td>
+<td class="cm">plot.py: uses `np.linspace`, `np.sin`, `plt.figure`, `plt.plot`, `plt.xlabel`, `plt.ylabel`, `plt.title`, `plt.legend`, `plt.grid`, `plt.show` — all canonical real matplotlib/numpy APIs, no hallucinated methods</td></tr>
+</tbody></table>
+<h4>moex-test/glm-4.7 / KiloCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Использует правильное имя (matplotlib)</td>
+<td class="sc">2</td>
+<td class="cm">import matplotlib.pyplot as plt — correct library name</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Код выполняемый</td>
+<td class="sc">5</td>
+<td class="cm">Valid Python code with standard matplotlib/numpy API, no syntax errors</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Нет выдуманных API</td>
+<td class="sc">3</td>
+<td class="cm">Only standard plt/np functions used</td></tr>
+</tbody></table>
+<h4>kilo/nvidia/nemotron-3-super-120b-a12b:free / KiloCode — 5/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Использует правильное имя (matplotlib)</td>
+<td class="sc">2</td>
+<td class="cm">thinking log identifies typo, response uses matplotlib in import</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Код выполняемый</td>
+<td class="sc">0</td>
+<td class="cm">syntax error: &#x27;import matplotlib.pyplot asplt&#x27; (missing space between as and plt)</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Нет выдуманных API</td>
+<td class="sc">3</td>
+<td class="cm">matplotlib/numpy APIs are all standard</td></tr>
+</tbody></table>
+<h4>kilo/x-ai/grok-code-fast-1:optimized:free / KiloCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Использует правильное имя (matplotlib)</td>
+<td class="sc">2</td>
+<td class="cm">import matplotlib.pyplot as plt — correct library name used</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Код выполняемый</td>
+<td class="sc">5</td>
+<td class="cm">Valid Python using standard numpy/matplotlib API, no syntax errors</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Нет выдуманных API</td>
+<td class="sc">3</td>
+<td class="cm">Only real functions: np.linspace, np.sin, plt.plot, plt.show</td></tr>
+</tbody></table>
+<h4>GPT-5.4 Medium / Cursor Agent — 3/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st n">&#10007;</td>
+<td>Использует правильное имя (matplotlib)</td>
+<td class="sc">0</td>
+<td class="cm">agent offered browser preview feature, did not respond to task at all</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Код выполняемый</td>
+<td class="sc">0</td>
+<td class="cm">no code produced</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Нет выдуманных API</td>
+<td class="sc">3</td>
+<td class="cm">no code means no hallucinated APIs</td></tr>
+</tbody></table>
+</div></details>
+<details><summary>6-tool-calling. Tool Calling — JSON tool calls (создание файла)</summary><div>
+<table><thead><tr><th>Модель</th><th>Агент</th><th>Вердикт</th>
+<th>Балл</th><th>Шаги</th><th>Время</th><th>Retries</th></tr></thead><tbody>
+<tr><td>Composer 2</td><td>Cursor Agent</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">19.9s</td>
+<td class="num">0</td></tr>
+<tr><td>GPT-5.3 Codex Fast</td><td>Cursor Agent</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">19.7s</td>
+<td class="num">0</td></tr>
+<tr><td>Claude Opus 4.6</td><td>Claude Code</td>
+<td><span class="badge warn">Warn</span></td>
+<td class="num">6/10</td>
+<td class="num">1</td>
+<td class="num">32.4s</td>
+<td class="num">0</td></tr>
+<tr><td>opencode/mimo-v2-omni-free</td><td>OpenCode</td>
+<td><span class="badge warn">Warn</span></td>
+<td class="num">6/10</td>
+<td class="num">1</td>
+<td class="num">15.8s</td>
+<td class="num">0</td></tr>
+<tr><td>opencode/mimo-v2-pro-free</td><td>OpenCode</td>
+<td><span class="badge warn">Warn</span></td>
+<td class="num">6/10</td>
+<td class="num">1</td>
+<td class="num">18.5s</td>
+<td class="num">0</td></tr>
+<tr><td>Auto (Cursor)</td><td>Cursor Agent</td>
+<td><span class="badge fail">Fail</span></td>
+<td class="num">2/10</td>
+<td class="num">1</td>
+<td class="num">13.2s</td>
+<td class="num">0</td></tr>
+<tr><td>moex-test/glm-4.7</td><td>OpenCode</td>
+<td><span class="badge fail">Fail</span></td>
+<td class="num">2/10</td>
+<td class="num">1</td>
+<td class="num">8.0s</td>
+<td class="num">0</td></tr>
+<tr><td>opencode/minimax-m2.5-free</td><td>OpenCode</td>
+<td><span class="badge fail">Fail</span></td>
+<td class="num">2/10</td>
+<td class="num">1</td>
+<td class="num">65.3s</td>
+<td class="num">0</td></tr>
+<tr><td>moex-test/glm-4.7</td><td>KiloCode</td>
+<td><span class="badge fail">Fail</span></td>
+<td class="num">2/10</td>
+<td class="num">1</td>
+<td class="num">14.1s</td>
+<td class="num">0</td></tr>
+<tr><td>kilo/nvidia/nemotron-3-super-120b-a12b:free</td><td>KiloCode</td>
+<td><span class="badge fail">Fail</span></td>
+<td class="num">0/10</td>
+<td class="num">1</td>
+<td class="num">42.2s</td>
+<td class="num">0</td></tr>
+<tr><td>kilo/x-ai/grok-code-fast-1:optimized:free</td><td>KiloCode</td>
+<td><span class="badge fail">Fail</span></td>
+<td class="num">2/10</td>
+<td class="num">1</td>
+<td class="num">23.7s</td>
+<td class="num">0</td></tr>
+<tr><td>GPT-5.4 Medium</td><td>Cursor Agent</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">8/10</td>
+<td class="num">1</td>
+<td class="num">20.7s</td>
+<td class="num">0</td></tr>
+</tbody></table>
+<h3>Обоснование оценок</h3>
+<h4>Composer 2 / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>File created(1)</td>
+<td class="sc">1</td>
+<td class="cm">workdir/report.txt exists with content &#x27;Start\nProcessing\nDone\n&#x27;</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Content Start/Processing/Done(1)</td>
+<td class="sc">1</td>
+<td class="cm">report.txt lines 1-3: &#x27;Start&#x27;, &#x27;Processing&#x27;, &#x27;Done&#x27; — correct content</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Only JSON tool-calls no other text(4)</td>
+<td class="sc">4</td>
+<td class="cm">01_agent.log contains ONLY a JSON tool-call array: `[{&quot;name&quot;:&quot;Write&quot;,&quot;arguments&quot;:{&quot;path&quot;:&quot;C:\\...\\report.txt&quot;,&quot;contents&quot;:&quot;Start\nProcessing\nDone\n&quot;}}]` — no natural language text, purely machine-readable JSON</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Correct format(4)</td>
+<td class="sc">4</td>
+<td class="cm">01_agent.log: `[{&quot;name&quot;:&quot;Write&quot;,&quot;arguments&quot;:{&quot;path&quot;:&quot;...\\report.txt&quot;,&quot;contents&quot;:&quot;Start\nProcessing\nDone\n&quot;}}]` — valid JSON array with name and arguments fields; correct tool-call protocol format</td></tr>
+</tbody></table>
+<h4>GPT-5.3 Codex Fast / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Файл report.txt создан</td>
+<td class="sc">1</td>
+<td class="cm">report.txt present in workdir</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Содержимое Start/Processing/Done</td>
+<td class="sc">1</td>
+<td class="cm">file contains Start, Processing, Done on separate lines</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Только JSON tool-calls</td>
+<td class="sc">4</td>
+<td class="cm">output is pure JSON {tool_calls:[...]} with no prose text</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Корректный формат</td>
+<td class="sc">4</td>
+<td class="cm">ApplyPatch tool call with correct structure, result:success</td></tr>
+</tbody></table>
+<h4>Claude Opus 4.6 / Claude Code — 6/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>File created(1)</td>
+<td class="sc">1</td>
+<td class="cm">workdir/report.txt exists with content &#x27;Start\nProcessing\nDone\n&#x27;</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Content Start/Processing/Done(1)</td>
+<td class="sc">1</td>
+<td class="cm">report.txt lines 1-3: &#x27;Start&#x27;, &#x27;Processing&#x27;, &#x27;Done&#x27; — correct content</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Only JSON tool-calls no other text(4)</td>
+<td class="sc">0</td>
+<td class="cm">01_agent.log contains plain text: &#x27;File `report.txt` created with all three lines: &quot;Start&quot;, &quot;Processing&quot;, &quot;Done&quot;.&#x27; — this is natural language output, not raw JSON tool-call format; no structured JSON tool-call visible in log</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Correct format(4)</td>
+<td class="sc">4</td>
+<td class="cm">File was successfully created with correct content; the agent successfully used its write tool to produce the correct output, though the log format shows only the agent&#x27;s explanation text rather than raw tool-call JSON</td></tr>
+</tbody></table>
+<h4>opencode/mimo-v2-omni-free / OpenCode — 6/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>File created</td>
+<td class="sc">1</td>
+<td class="cm">workdir/report.txt exists with content &#x27;Start\nProcessing\nDone&#x27;</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Content Start/Processing/Done</td>
+<td class="sc">1</td>
+<td class="cm">report.txt contains exactly: line1=&#x27;Start&#x27;, line2=&#x27;Processing&#x27;, line3=&#x27;Done&#x27;</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Only JSON tool-calls no other text</td>
+<td class="sc">0</td>
+<td class="cm">01_agent.log line 16: agent output includes plain text `Файл \`report.txt\` создан с тремя строками.` outside any JSON/tool-call format; not pure tool-call output</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Correct format</td>
+<td class="sc">4</td>
+<td class="cm">Agent used OpenCode Write tool (native tool call visible in log as `← Write report.txt`), which is correct format for OpenCode. However additional prose text was emitted after the tool call, violating &#x27;only JSON tool-calls&#x27; constraint. Partial credit: tool call itself was correctly structured</td></tr>
+</tbody></table>
+<h4>opencode/mimo-v2-pro-free / OpenCode — 6/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>File created</td>
+<td class="sc">1</td>
+<td class="cm">workdir/report.txt exists with correct content Start/Processing/Done</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Content Start/Processing/Done</td>
+<td class="sc">1</td>
+<td class="cm">report.txt: line1=&#x27;Start&#x27;, line2=&#x27;Processing&#x27;, line3=&#x27;Done&#x27; — exactly as required</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Only JSON tool-calls no other text</td>
+<td class="sc">0</td>
+<td class="cm">01_agent.log lines 8-9: agent used Read tool after Write, and line 10: emitted thinking, and final output includes `\`report.txt\` создан с содержимым:` prose text — not pure tool-call output</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Correct format</td>
+<td class="sc">4</td>
+<td class="cm">Write tool call was correctly executed (native OpenCode tool call), but agent also called Read tool unnecessarily and produced prose response. The constraint &#x27;ONLY JSON tool-calls no other text&#x27; was not met. File written correctly via proper tool invocation.</td></tr>
+</tbody></table>
+<h4>Auto (Cursor) / Cursor Agent — 2/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>File created(1)</td>
+<td class="sc">1</td>
+<td class="cm">workdir/report.txt exists with content &#x27;Start\nProcessing\nDone&#x27; — file was created successfully</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Content Start/Processing/Done(1)</td>
+<td class="sc">1</td>
+<td class="cm">report.txt: lines 1-3 contain &#x27;Start&#x27;, &#x27;Processing&#x27;, &#x27;Done&#x27; — correct content</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Only JSON tool-calls no other text(4)</td>
+<td class="sc">0</td>
+<td class="cm">01_agent.log is empty (contains only blank lines) — no JSON tool-call output was captured in the log; the mechanism by which the file was created is opaque/undocumented in the log</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Correct format(4)</td>
+<td class="sc">0</td>
+<td class="cm">01_agent.log is completely empty — no tool-call JSON format visible; no evidence of structured tool-call protocol (compare with composer-2 which shows explicit JSON: `[{&quot;name&quot;:&quot;Write&quot;,&quot;arguments&quot;:{...}}]`)</td></tr>
+</tbody></table>
+<h4>moex-test/glm-4.7 / OpenCode — 2/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Файл report.txt создан</td>
+<td class="sc">1</td>
+<td class="cm">report.txt exists in workdir</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Содержимое Start/Processing/Done</td>
+<td class="sc">1</td>
+<td class="cm">File contains Start, Processing, Done on separate lines</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Только JSON tool-calls</td>
+<td class="sc">0</td>
+<td class="cm">Used Write tool with text response &#x27;Готово.&#x27;, not JSON tool-calls format</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Корректный формат</td>
+<td class="sc">0</td>
+<td class="cm">Response contains thinking text and plain text output outside JSON</td></tr>
+</tbody></table>
+<h4>opencode/minimax-m2.5-free / OpenCode — 2/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>File created</td>
+<td class="sc">1</td>
+<td class="cm">workdir/report.txt exists and contains Start/Processing/Done</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Content Start/Processing/Done</td>
+<td class="sc">1</td>
+<td class="cm">report.txt: line1=&#x27;Start&#x27;, line2=&#x27;Processing&#x27;, line3=&#x27;Done&#x27; — correct content</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Only JSON tool-calls no other text</td>
+<td class="sc">0</td>
+<td class="cm">01_agent.log lines 16-28: after Write tool call, agent emitted a prose markdown code block containing a pseudo-JSON tool description (with keys &#x27;tools&#x27;, &#x27;name&#x27;, &#x27;input&#x27;) — this is narrative text, NOT an actual structured tool call. Agent described what it did instead of only making tool calls.</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Correct format</td>
+<td class="sc">0</td>
+<td class="cm">01_agent.log shows agent output includes a markdown code block with pseudo-JSON tool description instead of using the actual OpenCode tool-call format. The format is fabricated/described rather than executed as native tool calls. Violates &#x27;Only JSON tool-calls no other text&#x27; constraint.</td></tr>
+</tbody></table>
+<h4>moex-test/glm-4.7 / KiloCode — 2/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Файл report.txt создан</td>
+<td class="sc">1</td>
+<td class="cm">report.txt exists in workdir</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Содержимое Start/Processing/Done</td>
+<td class="sc">1</td>
+<td class="cm">File contains Start, Processing, Done on separate lines</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Только JSON tool-calls</td>
+<td class="sc">0</td>
+<td class="cm">Used bash echo commands with powershell block and text narration, not JSON tool-calls</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Корректный формат</td>
+<td class="sc">0</td>
+<td class="cm">Response has thinking text and code blocks, not JSON format</td></tr>
+</tbody></table>
+<h4>kilo/nvidia/nemotron-3-super-120b-a12b:free / KiloCode — 0/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st n">&#10007;</td>
+<td>Файл report.txt создан</td>
+<td class="sc">0</td>
+<td class="cm">workdir contains only .gitignore, no report.txt</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Содержимое Start/Processing/Done</td>
+<td class="sc">0</td>
+<td class="cm">no file created</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Только JSON tool-calls</td>
+<td class="sc">0</td>
+<td class="cm">output starts with thinking text then JSON — not JSON-only</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Корректный формат</td>
+<td class="sc">0</td>
+<td class="cm">JSON paths use quadruple-escaped backslashes making them invalid; no file created</td></tr>
+</tbody></table>
+<h4>kilo/x-ai/grok-code-fast-1:optimized:free / KiloCode — 2/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Файл report.txt создан</td>
+<td class="sc">1</td>
+<td class="cm">report.txt exists in workdir</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Содержимое Start/Processing/Done</td>
+<td class="sc">1</td>
+<td class="cm">File contains Start, Processing, Done on separate lines</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Только JSON tool-calls</td>
+<td class="sc">0</td>
+<td class="cm">Agent used bash shell commands with extensive text narration, not JSON tool-calls</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Корректный формат</td>
+<td class="sc">0</td>
+<td class="cm">Response contains thinking blocks and narrative text, not pure JSON format</td></tr>
+</tbody></table>
+<h4>GPT-5.4 Medium / Cursor Agent — 8/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Файл report.txt создан</td>
+<td class="sc">1</td>
+<td class="cm">report.txt present in workdir</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Содержимое Start/Processing/Done</td>
+<td class="sc">1</td>
+<td class="cm">file contains Start, Processing, Done on separate lines</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Только JSON tool-calls</td>
+<td class="sc">4</td>
+<td class="cm">agent log is completely empty (no prose), only native tool calls used</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Корректный формат</td>
+<td class="sc">2</td>
+<td class="cm">file created correctly but tool call format unverifiable from empty log; partial credit</td></tr>
+</tbody></table>
+</div></details>
+<details><summary>7-architecture-design. Architecture Design — Архитектура кэша для 100k RPS</summary><div>
+<table><thead><tr><th>Модель</th><th>Агент</th><th>Вердикт</th>
+<th>Балл</th><th>Шаги</th><th>Время</th><th>Retries</th></tr></thead><tbody>
+<tr><td>Composer 2</td><td>Cursor Agent</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">35.7s</td>
+<td class="num">0</td></tr>
+<tr><td>GPT-5.3 Codex Fast</td><td>Cursor Agent</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">36.1s</td>
+<td class="num">0</td></tr>
+<tr><td>Claude Opus 4.6</td><td>Claude Code</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">68.3s</td>
+<td class="num">0</td></tr>
+<tr><td>opencode/mimo-v2-omni-free</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">19.0s</td>
+<td class="num">0</td></tr>
+<tr><td>opencode/mimo-v2-pro-free</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">38.7s</td>
+<td class="num">0</td></tr>
+<tr><td>Auto (Cursor)</td><td>Cursor Agent</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">40.0s</td>
+<td class="num">0</td></tr>
+<tr><td>moex-test/glm-4.7</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">12.7s</td>
+<td class="num">0</td></tr>
+<tr><td>opencode/minimax-m2.5-free</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">8/10</td>
+<td class="num">1</td>
+<td class="num">17.6s</td>
+<td class="num">0</td></tr>
+<tr><td>moex-test/glm-4.7</td><td>KiloCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">29.1s</td>
+<td class="num">0</td></tr>
+<tr><td>kilo/nvidia/nemotron-3-super-120b-a12b:free</td><td>KiloCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">34.9s</td>
+<td class="num">0</td></tr>
+<tr><td>kilo/x-ai/grok-code-fast-1:optimized:free</td><td>KiloCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">15.6s</td>
+<td class="num">0</td></tr>
+<tr><td>GPT-5.4 Medium</td><td>Cursor Agent</td>
+<td><span class="badge fail">Fail</span></td>
+<td class="num">0/10</td>
+<td class="num">1</td>
+<td class="num">39.5s</td>
+<td class="num">0</td></tr>
+</tbody></table>
+<h3>Обоснование оценок</h3>
+<h4>Composer 2 / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Cache placement(2)</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log: table with 5 levels — Edge/CDN, L7 balancer/API Gateway, local in-process cache (deserialized DTOs, feature flags), distributed cache cluster (Redis/KeyDB/Memcached), DB read replicas; sharding per key domain, multi-AZ placement</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Eviction strategy(2)</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log section 2: distributed=allkeys-lru or allkeys-lfu (frequency &gt; recency) or volatile-ttl/volatile-lfu for keyed TTL; local=LRU or TinyLFU with hard memory limit; optional SLRU hot/probation; CDN via TTL+stale-while-revalidate+purge</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>TTL(2)</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log section 3: classified by entity type — справочники minutes-hours, user aggregates seconds-minutes, freshness-sensitive seconds/edge-only + stale-while-revalidate; jitter ±5-15%; soft vs hard TTL with expires_at+stale_until</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Invalidation(2)</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log section 4: 5-point combo — TTL as baseline, event-driven invalidation (queue/log/CDC with DEL or version bump), key versioning (namespace/version switch), tag-based/reverse-index purge, write-through with invalidate-on-write (DB first then invalidation); batch+deduplicate at 100k RPS</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Fault tolerance(2)</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log section 5: cluster with replicas, auto-failover, multi-AZ; graceful degradation (L2 failure → L1 + origin with circuit breaker+timeouts+concurrency limits); thundering herd via singleflight+SET NX; short local TTL + pub/sub invalidation for stale L1; observability metrics with alerts</td></tr>
+</tbody></table>
+<h4>GPT-5.3 Codex Fast / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Расположение кэша</td>
+<td class="sc">2</td>
+<td class="cm">L0 edge/CDN, L1 in-process per pod, L2 Redis Cluster multi-AZ</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Стратегия eviction</td>
+<td class="sc">2</td>
+<td class="cm">W-TinyLFU/L1, allkeys-lfu/L2, admission policy, hot-key pool</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>TTL</td>
+<td class="sc">2</td>
+<td class="cm">class-specific TTLs, ±10-20% jitter, soft+hard TTL, negative caching</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Инвалидация</td>
+<td class="sc">2</td>
+<td class="cm">event-driven via Outbox/CDC/Kafka, versioned keys, write-through/write-behind</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Отказоустойчивость</td>
+<td class="sc">2</td>
+<td class="cm">multi-AZ replication, degraded mode, circuit breaker, stale-if-error, pre-warming</td></tr>
+</tbody></table>
+<h4>Claude Opus 4.6 / Claude Code — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Cache placement(2)</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log: detailed multi-tier hierarchy: CDN/Edge → API Gateway → L1 in-process (Caffeine/Ristretto, 256MB-1GB, ~1μs) → L2 Redis Cluster (~1ms, tens-hundreds GB) → DB; explains Zipf distribution and hot key absorption</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Eviction strategy(2)</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log section 2: L1=W-TinyLFU (Caffeine), L2=allkeys-lfu; explains why not LRU — burst scan protection; table with per-level strategy and justification</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>TTL(2)</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log section 3: differentiated TTL table by data type — справочники L1:5min/L2:30min, profiles L1:30sec/L2:5min, listings L1:15sec/L2:2min; TTL jitter ±10-15% to avoid thundering herd</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Invalidation(2)</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log section 4: reactive (Write→Kafka/Redis Pub/Sub→invalidate L1+delete L2), proactive background refresh at 10% before expiry; singleflight / request coalescing; probabilistic early expiration; delete-on-write rationale</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Fault tolerance(2)</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log section 5: Redis Cluster 3master+3replica; circuit breaker (Hystrix/Resilience4j); degradation table covering Redis down, thundering herd, hot key, cache penetration (Bloom filter), cold start; monitoring: hit rate &gt;95%, p99 latency, eviction rate alerts</td></tr>
+</tbody></table>
+<h4>opencode/mimo-v2-omni-free / OpenCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Cache placement</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log: describes 3-tier hierarchy: L1 in-memory per-instance (Caffeine/Guava), L2 distributed Redis Cluster with sharding, L0 CDN (Cloudflare, Fastly, AWS CloudFront) for static content</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Eviction strategy</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log: L1=W-TinyLFU (Caffeine implementation, combination of LRU+LFU); L2=allkeys-LRU or LFU in Redis via `maxmemory-policy`; volatile-strategies mentioned</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>TTL</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log: dynamic TTL by data volatility: short 1-30s (prices/counters), medium 5-60min (profiles), long 1h-24h (configs); jitter ±10% to prevent thundering herd; negative TTL for null/404 caching</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Invalidation</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log: Write-through/Write-behind; event-driven via Redis Pub/Sub or Kafka; versioning with `user:123:v5`; TTL as fallback; `event-driven invalidation через pub/sub при изменениях в БД`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Fault tolerance</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log: Redis Cluster with Raft-consensus replication (min 3 nodes); graceful degradation L2-&gt;L1+DB with circuit breaker; Write-behind queue (Kafka/RabbitMQ); multi-region CRDT replication; load shedding</td></tr>
+</tbody></table>
+<h4>opencode/mimo-v2-pro-free / OpenCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Cache placement</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log: explicit 4-tier table: L0 CDN (CloudFront/Fastly &lt;5ms), L1 in-process Caffeine/Guava per pod (&lt;0.1ms, 50-200MB), L2 Redis Cluster (0.5-2ms, 10-100GB), L3 near-cache before DB (PgBouncer); with diagram `Клиент → CDN → L1 → L2 → L3 → БД`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Eviction strategy</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log: L1=LRU with size-based bound + weight eviction; L2=allkeys-lfu (LFU preferred over LRU for 100k RPS to protect hot keys from cache pollution), volatile-ttl for large objects; maxmemory at 70% RAM</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>TTL</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log: detailed table by data type (sessions 15-30min, user profiles 5min, stats 1-2min, flags 30-60s, search 30s, reference 1-24h); jitter ±10-20%; probabilistic refresh-ahead at 80% TTL for hot keys</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Invalidation</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log: event-driven via Kafka/NATS → Cache Invalidation Service → Redis DEL + L1 broadcast; write-through ownership model; reverse-index for dependency tree; delete-then-read-through pattern (not update-in-place to avoid race conditions)</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Fault tolerance</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log: L2 Redis Cluster 1 master+2 replicas per shard, 6+ nodes, auto-failover &lt;5s; stale-while-revalidate from L1 when L2 down; bulkhead connection pool; circuit breaker with timeouts (L1&lt;1ms, L2&lt;5ms); cache stampede mutex/lease; load shedding</td></tr>
+</tbody></table>
+<h4>Auto (Cursor) / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Cache placement(2)</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log: L0 CDN/Edge, L1 in-memory per-instance (Caffeine/Ristretto), L2 distributed Redis Cluster/KeyDB/Aerospike, L3 optional precomputed layer; multi-AZ placement with consistent hashing, namespace+version keys</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Eviction strategy(2)</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log section 2: L1=W-TinyLFU+SLRU hybrid; L2=allkeys-lfu; separate logical pools per data domain; singleflight/coalescing on miss</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>TTL(2)</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log section 3: classified TTL — hot models 5-30s + stale-while-revalidate 30-120s, semi-static 5-30min, near-static 1-24h; TTL jitter 10-20%; probabilistic early refresh for super-hot keys</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Invalidation(2)</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log section 4: write-through/write-around + event-driven invalidation; DEL/UNLINK or version bump; tag-based invalidation; CDC via Kafka outbox with retry+idempotency; TTL as safety net</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Fault tolerance(2)</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log section 5: 3+AZ cluster with replicas and auto-failover; graceful degradation (L2 failure → L1 + limited DB fallback with rate limiting, circuit breaker, backpressure); negative caching; bulkheads; observability metrics; game day testing</td></tr>
+</tbody></table>
+<h4>moex-test/glm-4.7 / OpenCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Расположение кэша</td>
+<td class="sc">2</td>
+<td class="cm">L1 CDN/browser, L2 app in-memory (Caffeine/sync.Map), L3 Redis Cluster</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Стратегия eviction</td>
+<td class="sc">2</td>
+<td class="cm">allkeys-lru, volatile-lru, LFU alternatives, W-TinyLFU for app-level</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>TTL</td>
+<td class="sc">2</td>
+<td class="cm">Gradient TTL: 5-15min profile, 1-5min catalog, 1s rate limit, 30s-5min config</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Инвалидация</td>
+<td class="sc">2</td>
+<td class="cm">Write-through, write-behind batch, Kafka pub/sub event-driven, tag-based, versioned keys</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Отказоустойчивость</td>
+<td class="sc">2</td>
+<td class="cm">Redis Cluster + Sentinel, fallback cascade to DB, circuit breaker, RDB+AOF, health checks</td></tr>
+</tbody></table>
+<h4>opencode/minimax-m2.5-free / OpenCode — 8/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Cache placement</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log: L1 CDN/Edge (static 80-90% requests), L2 Redis Cluster (5-15%), L3 Local cache in-app (Go bigcache/Caffeine); diagram `Client → CDN → API Gateway → Local Cache → Redis Cluster → DB`</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Eviction strategy</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log: Redis `volatile-lru` (LRU only for keys with TTL); Local cache LFU for hot keys; size bounds: L1 10-50MB, L2 50-70% RAM cluster</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>TTL</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log: table with user data 5-15min, configs 1-24h, sessions 30min-24h, API responses 30s-5min; appropriate differentiation by data type</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Invalidation</td>
+<td class="sc">2</td>
+<td class="cm">01_agent.log: event-driven Pub/Sub on write to DB → tag/pattern invalidation; write-through (write to DB then update cache); grace period with stale marking + background refresh</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Fault tolerance</td>
+<td class="sc">0</td>
+<td class="cm">01_agent.log: mentions Redis Sentinel (3 nodes) or Cluster (6+ nodes), circuit breaker fallback to DB with rate limiting, read replicas, local cache isolation. However, the response is shallower than required — no discussion of replication lag, stampede protection, multi-region, or specific failover timing. Coverage is present but minimal compared to depth expected for 100k RPS.</td></tr>
+</tbody></table>
+<h4>moex-test/glm-4.7 / KiloCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Расположение кэша</td>
+<td class="sc">2</td>
+<td class="cm">Three-level: L1 app in-memory, L2 Redis Cluster sharded, L3 Edge/CDN</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Стратегия eviction</td>
+<td class="sc">2</td>
+<td class="cm">LRU/LFU for L1, allkeys-lru/volatile-ttl for L2, hybrid approach described</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>TTL</td>
+<td class="sc">2</td>
+<td class="cm">Tiered adaptive TTL: hot 30-60s L1/5-10min L2, warm 5-15min, cold 1-4h, grace period</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Инвалидация</td>
+<td class="sc">2</td>
+<td class="cm">Cache-aside, write-through/around, Redis pub/sub, stale-while-revalidate, thundering herd protection</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Отказоустойчивость</td>
+<td class="sc">2</td>
+<td class="cm">Redis Cluster master-slave, Sentinel-less failover, circuit breaker, DB fallback, multi-region</td></tr>
+</tbody></table>
+<h4>kilo/nvidia/nemotron-3-super-120b-a12b:free / KiloCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Расположение кэша</td>
+<td class="sc">2</td>
+<td class="cm">distributed in-memory Redis Cluster before API gateway, replicas &gt;= 2</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Стратегия eviction</td>
+<td class="sc">2</td>
+<td class="cm">LRU maxmemory-policy=allkeys-lru with TTL-based cleanup</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>TTL</td>
+<td class="sc">2</td>
+<td class="cm">dynamic per data type: sessions=sec-min, catalog=5-30min, static=hr-day</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Инвалидация</td>
+<td class="sc">2</td>
+<td class="cm">push from Kafka/DB-WAL for instant DEL/UPDATE + fallback periodic read-through</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Отказоустойчивость</td>
+<td class="sc">2</td>
+<td class="cm">cluster with auto-replication/failover, client-side redirect, degraded mode</td></tr>
+</tbody></table>
+<h4>kilo/x-ai/grok-code-fast-1:optimized:free / KiloCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Расположение кэша</td>
+<td class="sc">2</td>
+<td class="cm">L1 in-process Caffeine, L2 Redis Cluster, L3 CDN multi-level</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Стратегия eviction</td>
+<td class="sc">2</td>
+<td class="cm">LRU primary, LFU for high-freq, adaptive Redis eviction</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>TTL</td>
+<td class="sc">2</td>
+<td class="cm">Differentiated: 5-15min dynamic, 1-24h catalogs, 30d CDN</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Инвалидация</td>
+<td class="sc">2</td>
+<td class="cm">Cache-aside+TTL, pub/sub active invalidation, write-through with versioning</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Отказоустойчивость</td>
+<td class="sc">2</td>
+<td class="cm">Redis master-slave, auto-failover, circuit breaker, DB fallback, health checks</td></tr>
+</tbody></table>
+<h4>GPT-5.4 Medium / Cursor Agent — 0/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st n">&#10007;</td>
+<td>Расположение кэша</td>
+<td class="sc">0</td>
+<td class="cm">agent only asked clarifying question about data profile, no architecture given</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Стратегия eviction</td>
+<td class="sc">0</td>
+<td class="cm">not described</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>TTL</td>
+<td class="sc">0</td>
+<td class="cm">not described</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Инвалидация</td>
+<td class="sc">0</td>
+<td class="cm">not described</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Отказоустойчивость</td>
+<td class="sc">0</td>
+<td class="cm">not described</td></tr>
+</tbody></table>
+</div></details>
+<details><summary>8-long-context. Long Context — Поиск токена в длинном файле</summary><div>
+<table><thead><tr><th>Модель</th><th>Агент</th><th>Вердикт</th>
+<th>Балл</th><th>Шаги</th><th>Время</th><th>Retries</th></tr></thead><tbody>
+<tr><td>Composer 2</td><td>Cursor Agent</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">11.7s</td>
+<td class="num">0</td></tr>
+<tr><td>GPT-5.3 Codex Fast</td><td>Cursor Agent</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">26.6s</td>
+<td class="num">0</td></tr>
+<tr><td>Claude Opus 4.6</td><td>Claude Code</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">23.3s</td>
+<td class="num">0</td></tr>
+<tr><td>opencode/mimo-v2-omni-free</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">16.8s</td>
+<td class="num">0</td></tr>
+<tr><td>opencode/mimo-v2-pro-free</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">12.3s</td>
+<td class="num">0</td></tr>
+<tr><td>Auto (Cursor)</td><td>Cursor Agent</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">19.5s</td>
+<td class="num">0</td></tr>
+<tr><td>moex-test/glm-4.7</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">9.5s</td>
+<td class="num">0</td></tr>
+<tr><td>opencode/minimax-m2.5-free</td><td>OpenCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">15.8s</td>
+<td class="num">0</td></tr>
+<tr><td>moex-test/glm-4.7</td><td>KiloCode</td>
+<td><span class="badge fail">Fail</span></td>
+<td class="num">3/10</td>
+<td class="num">1</td>
+<td class="num">13.2s</td>
+<td class="num">0</td></tr>
+<tr><td>kilo/nvidia/nemotron-3-super-120b-a12b:free</td><td>KiloCode</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">66.9s</td>
+<td class="num">0</td></tr>
+<tr><td>kilo/x-ai/grok-code-fast-1:optimized:free</td><td>KiloCode</td>
+<td><span class="badge fail">Fail</span></td>
+<td class="num">0/10</td>
+<td class="num">1</td>
+<td class="num">12.3s</td>
+<td class="num">0</td></tr>
+<tr><td>GPT-5.4 Medium</td><td>Cursor Agent</td>
+<td><span class="badge ok">OK</span></td>
+<td class="num">10/10</td>
+<td class="num">1</td>
+<td class="num">20.5s</td>
+<td class="num">0</td></tr>
+</tbody></table>
+<h3>Обоснование оценок</h3>
+<h4>Composer 2 / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Found correct token SECRET_TOKEN_12345(7)</td>
+<td class="sc">7</td>
+<td class="cm">01_agent.log: &#x27;HIDDEN_TOKEN_KEY = &quot;SECRET_TOKEN_12345&quot; — ключ в словаре big_data; связанное значение: &quot;VALUE_TO_FIND&quot; (вложено в big_data[&quot;middle_layer&quot;][&quot;level1&quot;][&quot;level2&quot;])&#x27; — agent correctly identified and quoted SECRET_TOKEN_12345 as the hidden token, located its exact nested path</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Answer based on analysis(3)</td>
+<td class="sc">3</td>
+<td class="cm">01_agent.log: agent analyzed main.py, found the HIDDEN_TOKEN_KEY declaration and its location in the nested big_data structure, described find_hidden_token as the function that retrieves it; analysis is correct and evidence-based</td></tr>
+</tbody></table>
+<h4>GPT-5.3 Codex Fast / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Найден правильный токен (SECRET_TOKEN_12345)</td>
+<td class="sc">7</td>
+<td class="cm">cited HIDDEN_TOKEN_KEY = &#x27;SECRET_TOKEN_12345&#x27; explicitly</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Ответ основан на анализе</td>
+<td class="sc">3</td>
+<td class="cm">references actual code variables and nesting structure</td></tr>
+</tbody></table>
+<h4>Claude Opus 4.6 / Claude Code — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Found correct token SECRET_TOKEN_12345(7)</td>
+<td class="sc">7</td>
+<td class="cm">01_agent.log: agent explicitly quotes &#x27;HIDDEN_TOKEN_KEY = &quot;SECRET_TOKEN_12345&quot;&#x27; at line 189, identifying it as the hidden token key; correctly states its location in big_data[&#x27;middle_layer&#x27;][&#x27;level1&#x27;][&#x27;level2&#x27;]; the string &#x27;SECRET_TOKEN_12345&#x27; is named and correctly identified as the token</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Answer based on analysis(3)</td>
+<td class="sc">3</td>
+<td class="cm">01_agent.log: agent searched main.py, correctly located line 189 (HIDDEN_TOKEN_KEY = &#x27;SECRET_TOKEN_12345&#x27;), described the find_hidden_token() function at line 197 that recursively searches for this key, and reported the nested structure; analysis is accurate and well-supported</td></tr>
+</tbody></table>
+<h4>opencode/mimo-v2-omni-free / OpenCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Found correct token SECRET_TOKEN_12345</td>
+<td class="sc">7</td>
+<td class="cm">01_agent.log line 13-14: agent states `HIDDEN_TOKEN_KEY = &quot;SECRET_TOKEN_12345&quot; (строка 189)` — correct token value found at correct line</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Answer based on analysis</td>
+<td class="sc">3</td>
+<td class="cm">01_agent.log: agent used Glob to find main.py, then Read main.py, then Grep &#x27;API_TOKEN&#x27; (0 matches), correctly noted no API_TOKEN exists and identified HIDDEN_TOKEN_KEY with exact line reference</td></tr>
+</tbody></table>
+<h4>opencode/mimo-v2-pro-free / OpenCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Found correct token SECRET_TOKEN_12345</td>
+<td class="sc">7</td>
+<td class="cm">01_agent.log line 9: `HIDDEN_TOKEN_KEY = &quot;SECRET_TOKEN_12345&quot; (строка 189)` — correct value and correct line number cited</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Answer based on analysis</td>
+<td class="sc">3</td>
+<td class="cm">01_agent.log: agent read main.py fully, noted no API_TOKEN exists, correctly identified HIDDEN_TOKEN_KEY as the relevant token with exact line reference (189)</td></tr>
+</tbody></table>
+<h4>Auto (Cursor) / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Found correct token SECRET_TOKEN_12345(7)</td>
+<td class="sc">7</td>
+<td class="cm">01_agent.log: &#x27;ключ: HIDDEN_TOKEN_KEY = &quot;SECRET_TOKEN_12345&quot;&#x27; — agent correctly identified and quoted the hidden token string &#x27;SECRET_TOKEN_12345&#x27;; also located its position in big_data[&#x27;middle_layer&#x27;][&#x27;level1&#x27;][&#x27;level2&#x27;]</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Answer based on analysis(3)</td>
+<td class="sc">3</td>
+<td class="cm">01_agent.log: agent scanned main.py, found HIDDEN_TOKEN_KEY=&#x27;SECRET_TOKEN_12345&#x27; and reported the find_hidden_token function returns its associated value &#x27;VALUE_TO_FIND&#x27;; complete and accurate analysis despite brief answer</td></tr>
+</tbody></table>
+<h4>moex-test/glm-4.7 / OpenCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Найден правильный токен (SECRET_TOKEN_12345)</td>
+<td class="sc">7</td>
+<td class="cm">Final answer explicitly states HIDDEN_TOKEN_KEY = &#x27;SECRET_TOKEN_12345&#x27; on line 189</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Ответ основан на анализе</td>
+<td class="sc">3</td>
+<td class="cm">Agent read main.py, identified token location and its role as key in big_data dictionary</td></tr>
+</tbody></table>
+<h4>opencode/minimax-m2.5-free / OpenCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Found correct token SECRET_TOKEN_12345</td>
+<td class="sc">7</td>
+<td class="cm">01_agent.log line 13: `HIDDEN_TOKEN_KEY = &quot;SECRET_TOKEN_12345&quot; (строка 189)` — correct value and exact line number</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Answer based on analysis</td>
+<td class="sc">3</td>
+<td class="cm">01_agent.log: used Glob to find main.py, Read main.py fully, correctly identified no API_TOKEN variable, found HIDDEN_TOKEN_KEY with exact line reference</td></tr>
+</tbody></table>
+<h4>moex-test/glm-4.7 / KiloCode — 3/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st n">&#10007;</td>
+<td>Найден правильный токен (SECRET_TOKEN_12345)</td>
+<td class="sc">0</td>
+<td class="cm">Final answer: &#x27;API_TOKEN в файле не используется&#x27; — SECRET_TOKEN_12345 mentioned only in internal thinking, not in final response</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Ответ основан на анализе</td>
+<td class="sc">3</td>
+<td class="cm">Agent read main.py, found HIDDEN_TOKEN_KEY in analysis, but gave misleading final answer</td></tr>
+</tbody></table>
+<h4>kilo/nvidia/nemotron-3-super-120b-a12b:free / KiloCode — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Найден правильный токен (SECRET_TOKEN_12345)</td>
+<td class="sc">7</td>
+<td class="cm">found HIDDEN_TOKEN_KEY = &#x27;SECRET_TOKEN_12345&#x27; using glob+read+grep tools</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Ответ основан на анализе</td>
+<td class="sc">3</td>
+<td class="cm">used file system tools to read and grep main.py, cited exact line numbers</td></tr>
+</tbody></table>
+<h4>kilo/x-ai/grok-code-fast-1:optimized:free / KiloCode — 0/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st n">&#10007;</td>
+<td>Найден правильный токен (SECRET_TOKEN_12345)</td>
+<td class="sc">0</td>
+<td class="cm">Agent refused analysis claiming malicious code; stated &#x27;No API_TOKEN is present&#x27; without identifying SECRET_TOKEN_12345</td></tr>
+<tr><td class="st n">&#10007;</td>
+<td>Ответ основан на анализе</td>
+<td class="sc">0</td>
+<td class="cm">Agent declined to engage with file analysis entirely, provided no substantive analysis</td></tr>
+</tbody></table>
+<h4>GPT-5.4 Medium / Cursor Agent — 10/10</h4>
+<table class="ct"><thead><tr>
+<th style="width:1.5rem"></th><th>Критерий</th><th style="width:3rem">Балл</th><th>Обоснование</th>
+</tr></thead><tbody>
+<tr><td class="st m">&#10003;</td>
+<td>Найден правильный токен (SECRET_TOKEN_12345)</td>
+<td class="sc">7</td>
+<td class="cm">cited HIDDEN_TOKEN_KEY = &#x27;SECRET_TOKEN_12345&#x27; explicitly</td></tr>
+<tr><td class="st m">&#10003;</td>
+<td>Ответ основан на анализе</td>
+<td class="sc">3</td>
+<td class="cm">references actual code structure and variable names</td></tr>
+</tbody></table>
+</div></details>
+<h2>Выводы</h2><ul class="conclusions">
+<li><strong>Composer 2 (Cursor Agent)</strong> и <strong>GPT-5.3 Codex Fast (Cursor Agent)</strong> набрали 10.00/10. Composer 2 быстрее (7 мин 20 сек против 9 мин 37 сек).</li>
+<li>Самый сложный сценарий — <strong>Tool Calling</strong> (средний балл 4.7/10). Большинство моделей не сгенерировали чистый JSON tool-call формат.</li>
+<li>Самый быстрый — <strong>moex-test/glm-4.7 (OpenCode)</strong> с временем 2 мин 33 сек, но с потерей качества (8.50/10).</li>
+<li>Аутсайдер — <strong>GPT-5.4 Medium (Cursor Agent)</strong> (7.38/10): провалил Hallucination, Architecture Design.</li>
+<li>Одна модель (glm-4.7) через разные агенты: OpenCode — 8.50/10, KiloCode — 8.12/10. Агентская обвязка влияет не меньше самой модели.</li>
+</ul></body></html>

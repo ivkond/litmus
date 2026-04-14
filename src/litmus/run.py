@@ -23,6 +23,8 @@ from . import PROJECT_ROOT
 TEMPLATE_DIR = PROJECT_ROOT / "template"
 RESULTS_DIR = PROJECT_ROOT / "results"
 
+TEST_FILE = "test.py"
+
 
 def get_scenario_ids(template_dir: Path) -> list[str]:
     """Scan template dir for subdirectories with prompt.txt, return scenario IDs."""
@@ -404,7 +406,7 @@ def run_single_scenario(
         shutil.copytree(
             tpl_project,
             agent_dir,
-            ignore=shutil.ignore_patterns("test.py", "__pycache__"),
+            ignore=shutil.ignore_patterns(TEST_FILE, "__pycache__"),
         )
     else:
         agent_dir.mkdir(parents=True)
@@ -496,18 +498,18 @@ def run_single_scenario(
         return False
 
     if has_pyproject:
-        template_test = tpl_project / "test.py"
+        template_test = tpl_project / TEST_FILE
         if template_test.is_file():
             max_retries = 2  # initial run + N retries
             for attempt in range(max_retries + 1):
                 # Inject test.py before pytest, remove after
-                shutil.copy2(template_test, agent_dir / "test.py")
+                shutil.copy2(template_test, agent_dir / TEST_FILE)
 
                 test_label = f"Run tests (pytest){' #' + str(attempt + 1) if attempt > 0 else ''}"
                 idx, log_path = log.begin(test_label, "test")
                 try:
                     ok = run_cmd(
-                        ["uv", "run", "pytest", "test.py", "-v"],
+                        ["uv", "run", "pytest", TEST_FILE, "-v"],
                         agent_dir,
                         log_path,
                         "pytest",
@@ -516,12 +518,12 @@ def run_single_scenario(
                     )
                 except CancelledError:
                     log.finish(idx, "cancelled")
-                    (agent_dir / "test.py").unlink(missing_ok=True)
+                    (agent_dir / TEST_FILE).unlink(missing_ok=True)
                     raise
                 log.finish(idx, "done" if ok else "failed")
 
                 # Remove test.py so agent can't see it on retry
-                (agent_dir / "test.py").unlink(missing_ok=True)
+                (agent_dir / TEST_FILE).unlink(missing_ok=True)
 
                 if ok:
                     return True

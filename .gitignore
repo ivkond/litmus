@@ -7,6 +7,8 @@ __pycache__/
 target/
 *.log
 
+node_modules/
+
 .agents_cache.yaml
 config.yaml
 litmus.yaml
@@ -14,7 +16,11 @@ litmus.yaml
 template/
 temp/
 .superpowers/
+.worktrees/
 .gitnexus/
 .claude/
 .agents/
 CLAUDE.md
+
+# Generated HTML reports
+docs/*.html
